@@ -10,7 +10,7 @@ import org.mms.core.runtime.ICollectionProperty
 import org.mms.core.runtime.ICollectionProperty
 import org.mms.core.codemodel.SourceMember
 import org.mms.core.codemodel.SourceMember
-
+import org.mms.core.runtime.RuntimeImplicits._;
 trait Tranformation[F, T] extends Function2[F, T, Unit] {
 
 }
@@ -21,31 +21,30 @@ trait RegisterableTransformer[F, T] extends TranformationFunction[F, T] {
   def supports(): Tuple2[Class[_], Class[_]];
 }
 
-
 class TransformerRegistry {
   type ClassPair = Tuple2[Class[_], Class[_]];
 
   var tMap: Map[ClassPair, Function1[_, _]] = Map().withDefaultValue(null);
 
-  def register(c:RegisterableTransformer[_,_]) {
-      val kv=(c.supports(),c);
-      tMap=tMap+kv;
+  def register(c: RegisterableTransformer[_, _]) {
+    val kv = (c.supports(), c);
+    tMap = tMap + kv;
   }
 
   def transformer(f: Class[_], t: Class[_]): Function1[_, _] = {
     val p: ClassPair = (f, t);
     var r = tMap(p);
-    if (r==null){
-      val s=f.getSuperclass;
-      if (s!=null&&f!=classOf[Object]){
-         r=transformer(s, t);
+    if (r == null) {
+      val s = f.getSuperclass;
+      if (s != null && f != classOf[Object]) {
+        r = transformer(s, t);
       }
-      if (r!=null){
-          return r;
-       }
-      for (i<-f.getInterfaces){
-        r=transformer(i, t);
-        if (r!=null){
+      if (r != null) {
+        return r;
+      }
+      for (i <- f.getInterfaces) {
+        r = transformer(i, t);
+        if (r != null) {
           return r;
         }
       }
@@ -62,13 +61,44 @@ object Transformers {
     if (rt.isInstance(v)) {
       return rt.cast(v);
     }
-    val t=registry.transformer(v.getClass(), rt);
-    if (t== null) {
+    val t = registry.transformer(v.getClass(), rt);
+    //
+
+    if (t == null) {
+      val bt: RegisterableTransformer[F, T] = buildTransform(v.getClass().asInstanceOf[Class[F]], rt);
+      if (bt != null) {
+        registry.register(bt);
+        return bt(v);
+      }
       throw new IllegalArgumentException(s"Can not transform ${v} to ${rt}")
     }
     val f: Function1[F, T] = t.asInstanceOf[Function1[F, T]];
-    
+
     return f(v);
+  }
+  case class CalculatedTransform[A, B](a: Class[A], b: Class[B], tr: TransformationList[A, B]) extends RegisterableTransformer[A, B] {
+
+    def apply(v1: A): B = {
+      val r = b.newInstance();
+      tr.apply(a.cast(v1), r);
+      return r;
+    }
+
+    def supports(): (Class[_], Class[_]) = (a, b);
+  }
+
+  def buildTransform[A, B](v: Class[A], rt: Class[B]): RegisterableTransformer[A, B] = {
+    val r = OneWayTransform(v, rt);
+    if (r == null) {
+      return null;
+    }
+    val bl=r.build();
+    if (bl.isDefined){
+    val x:Seq[Tranformation[A,B]]=bl.get.map { x => x.toTransform() }.asInstanceOf[Seq[Tranformation[A,B]]];
+    val list=TransformationList[A,B](x:_*);
+    return CalculatedTransform(v,rt,list);
+    }
+    return null;
   }
 
   def create[T <: Any](rt: Class[T]): T = {
@@ -171,6 +201,6 @@ object Tst extends App {
   val hello = "AA";
   val q = RuntimeProperty(Tst.getClass, "hello");
   Transformers.registry.register(PropertyToMember);
-  val z = Transformers.transform(q.meta,classOf[SourceMember]);
+  val z = Transformers.transform(q.meta, classOf[SourceMember]);
   println(z);
 }

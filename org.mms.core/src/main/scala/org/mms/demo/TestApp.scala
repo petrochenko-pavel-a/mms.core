@@ -1,10 +1,11 @@
 package org.mms.demo
 import org.mms.core.Type
-import org.mms.core.Prop
 import org.mms.core.Entity
 import org.mms.core.ModelType
 import org.mms.core.codemodel.CodeModel
 import org.mms.core.codemodel.SourceType
+import org.mms.core.Prop
+import org.mms.core.Prop
 
 
 object Person extends ModelType() {
@@ -21,7 +22,6 @@ object TestApp extends App {
   
   var t=new SourceType();
   t.name="Hello";
-  
   println(t)
   /*var s = CodeWriter("C:\\work\\jaxrs-raml-converters\\org.mms.test\\src\\");
   var u=new ScalaUniverse();

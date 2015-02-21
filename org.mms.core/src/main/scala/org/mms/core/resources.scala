@@ -8,19 +8,8 @@ object Entity {
     annotations.addBinding(e, f);
   }
   
-  def about(e:Entity[_]):Set[FactAnnotation]={
-    var v=annotations.get(e);
-    if (v.isDefined){
-      return v.get;
-    }
-    return Set();
-  }
-  def about[T<:FactAnnotation](e:Entity[_],t:Class[T]):Set[T]={
-    var v=annotations.get(e);
-    if (v.isDefined){
-      return v.get.filter { x => t.isInstance(x) }.asInstanceOf[Set[T]];
-    }
-    return Set();
+  def about[T<:FactAnnotation](e:Entity[_],t:Class[T]):scala.collection.immutable.Set[T]={
+    return e.about(t);
   }
 }
 trait FactAnnotation {
@@ -34,6 +23,13 @@ trait Entity[T <: Entity[T]] {
 
   protected def register(c:Entity[_],f:FactAnnotation){
     Entity.register(c, f);
+  }
+  def about[T<:FactAnnotation](t:Class[T]):scala.collection.immutable.Set[T]={
+    var v=Entity.annotations.get(this);
+    if (v.isDefined){
+      return v.get.filter { x => t.isInstance(x) }.asInstanceOf[Set[T]].toSet;
+    }
+    return scala.collection.immutable.Set();
   }
   
   def desribe(description: String):Entity[T]= {

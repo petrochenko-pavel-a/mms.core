@@ -2,6 +2,7 @@ package org.mms.core
 
 import scala.collection.mutable.HashMap
 import java.lang.reflect.Field
+import org.mms.core.runtime.IRuntimeProperty
 
 
 
@@ -15,20 +16,28 @@ trait Property[DomainType<:Type,RangeType<:Type] extends Entity[Property[DomainT
    def range():RangeType
    def domain():DomainType
    def name():String;
-   register(domain,isPropertyOf(domain,this));
-   register(range,isRangeOf(range,this));
+   def init(){
+     register(domain,isPropertyOf(domain,this));
+     register(range,isRangeOf(range,this));
+   }
+   init();
    
    override def toString():String={
      domain()+"."+name+":"+range();
    }
 
-   def <=>[A<:Type,B<:Type](p:Property[_,_]):PropertyAssertion=TransformOneToOne(this,p.asInstanceOf[Property[A,B]]);
+   def <=>[A<:Type,B<:Type](p:Property[_,_]):PropertyAssertion=TransformsOneToOne(this,p.asInstanceOf[Property[A,B]]);
    
 }
 trait PropertyAssertion extends FactAnnotation with Entity[PropertyAssertion]
 
+trait AssertionContainer {
+  
+  def learn(){};
+}
 
-class Prop[D<:ModelType[_],R<:Type](val domain:D,val range:R)extends Property[D,R]{
+
+private[core] class Prop[D<:ModelType[_],R<:Type](val domain:D,val range:R)extends Property[D,R]{
 
   def name():String={
      //FIXME

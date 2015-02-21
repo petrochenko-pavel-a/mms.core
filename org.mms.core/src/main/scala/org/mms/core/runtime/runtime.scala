@@ -33,6 +33,48 @@ case class ReflectionGetter[D](val method: Method) extends Function1[D, Object] 
 case class ReflectionSetter[D](val method: Method) extends Function2[D, Object, Unit] {
   def apply(o: D, v: Object): Unit = method.invoke(o, v);
 }
+
+case class ModelledRuntimeProperty[D,R](model:PropertyModel) extends IRuntimeProperty[D,R] {
+  import RuntimeImplicits._;
+  
+  val actual:RuntimeProperty[D,R]=RuntimeProperty(model.domain,model.name()).asInstanceOf[RuntimeProperty[D,R]];
+  
+  def meta(): PropertyModel=model;
+  
+  def getter(): Function1[D, R]=actual.getter;
+  
+  def setter(): Function2[D, R, Unit]=actual.setter;
+  
+  def range(): Class[R]={
+    val v:Class[_]=model.range();
+    return v.asInstanceOf[Class[R]];    
+  }
+}
+//TODO see how it stacks with build in types
+case class OnRuntimeIs(model:Type,clazz:Class[_])extends Entity[OnRuntimeIs] with FactAnnotation{
+  {
+    import RuntimeImplicits._;
+    register(model,this);
+    register(model,this);
+  }
+}
+
+
+object RuntimeImplicits {  
+  implicit def propToRuntime(p:PropertyModel):IRuntimeProperty[_,_] =ModelledRuntimeProperty(p);
+  implicit def typeToRuntime(p:Type):Class[_] = {
+    val set=Entity.about(p,classOf[OnRuntimeIs]);
+    if (set.size==1){
+       return set.toSeq(0).clazz;
+    }
+    return null;
+  }
+  implicit def classToType(c:Class[_]):Type = {
+    //I wish ModelType would be a case class
+    return BuiltInType(c);
+  }
+}
+
 class RuntimeMeta[D,R](val pn:String,dC:Class[D],rC:Class[R]) extends Property[BuiltInType[D],BuiltInType[R]] {
   def domain(): BuiltInType[D] = dC;
 
@@ -40,6 +82,7 @@ class RuntimeMeta[D,R](val pn:String,dC:Class[D],rC:Class[R]) extends Property[B
 
   def range(): BuiltInType[R] =rC;
 }
+
 object RuntimeProperty {
   def apply[D](c: Class[D], n: String): RuntimeProperty[D, Object] = {
     var getMethod: Method = null;
