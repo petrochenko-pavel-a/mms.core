@@ -58,7 +58,9 @@ case class OnRuntimeIs(model:Type,clazz:Class[_])extends Entity[OnRuntimeIs] wit
     register(model,this);
   }
 }
-
+case class IsDescribedIn(model:ModelType[_<:ModelType[_]],buildIn:BuiltInType[_])extends Entity[IsDescribedIn] with OneValueFact{
+  register(buildIn,this);
+}
 
 object RuntimeImplicits {  
   implicit def propToRuntime(p:PropertyModel):IRuntimeProperty[_,_] =ModelledRuntimeProperty(p);

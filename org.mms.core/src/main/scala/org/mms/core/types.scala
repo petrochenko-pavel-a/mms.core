@@ -6,6 +6,8 @@ import org.mms.core.codemodel.IType
 import org.mms.core.runtime.OnRuntimeIs
 import org.mms.core.runtime.OnRuntimeIs
 import org.mms.core.runtime.RuntimeProperty
+import org.mms.core.runtime.IsDescribedIn
+import org.mms.core.runtime.IsDescribedIn
 
 trait Type extends Entity[Type] {
   def superType: Type
@@ -31,7 +33,10 @@ class ModelType[T<:ModelType[_]](val superType: Type = null) extends Type {
   
   val NOTHING=new Prop(this,NothingType){ override def  name()="NOTHING"};
   
-  def <=>(c:Class[_])=OnRuntimeIs(this,c);
+  def <=>(c:Class[_])={
+    OnRuntimeIs(this,c);
+    IsDescribedIn(this,c);
+   }
   
   private[core] class MetaInf {
     val fToPropMap: HashMap[Field,UnknownProperty] = HashMap();
@@ -65,6 +70,10 @@ case class BuiltInType[T](val builtIn: Class[T]) extends Type with IType {
   def fullName(): String=builtIn.getName;
   
   override def about[T<:FactAnnotation](t:Class[T]):Set[T]={
+    val description=super.fact(classOf[IsDescribedIn]);
+    if (description!=null){
+      return description.model.about(t);
+    }
     if (t==classOf[isPropertyOf[_]]){
        var pr=Set[isPropertyOf[_]]();
        val pm=builtIn.getMethods.filter { x => x.getParameterTypes.length==0&&x.getReturnType!=Void.TYPE };
