@@ -76,7 +76,7 @@ object Transformers {
 
     return f(v);
   }
-  case class CalculatedTransform[A, B](a: Class[A], b: Class[B], tr: TransformationList[A, B]) extends RegisterableTransformer[A, B] {
+  case class CalculatedTransform[A, B](a: Class[A], b: Class[B], tr: Tranformation[A, B]) extends RegisterableTransformer[A, B] {
 
     def apply(v1: A): B = {
       val r = b.newInstance();
@@ -88,15 +88,10 @@ object Transformers {
   }
 
   def buildTransform[A, B](v: Class[A], rt: Class[B]): RegisterableTransformer[A, B] = {
-    val r = OneWayTransform(v, rt);
-    if (r == null) {
-      return null;
-    }
-    val bl=r.build();
-    if (bl.isDefined){
-    val x:Seq[Tranformation[A,B]]=bl.get.map { x => x.toTransform() }.asInstanceOf[Seq[Tranformation[A,B]]];
-    val list=TransformationList[A,B](x:_*);
-    return CalculatedTransform(v,rt,list);
+    
+    val bl=TransformationModelRegistry.transformer(v, rt);
+    if (bl!=null){
+    return CalculatedTransform(v,rt,bl.toTransform().asInstanceOf);
     }
     return null;
   }

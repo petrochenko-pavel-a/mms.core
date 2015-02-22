@@ -12,10 +12,11 @@ import org.mms.core.isPropertyOf
 import org.mms.core._
 import org.mms.core.codemodel.SourceMember
 import org.mms.core.runtime.RuntimeImplicits._;
+import org.mms.core.codemodel.IType
 
 trait CanBuildTransform{
   
-  def build:Option[Seq[TransformationPrototype]];
+  def build:TransformationPrototype;
 }
 
 trait TransformationPrototype{
@@ -26,19 +27,59 @@ trait TransformationPrototype{
 case class OneToOne(val first:PropertyModel,another:PropertyModel) extends TransformationPrototype{
   def toTransform():Tranformation[_,_]=OneToOnePropertyTransform(first,another);  
 }
+object  NilPrototype extends TransformationPrototype{
+  def toTransform():Tranformation[_,_]=null;  
+}
+class TransformModel(val transforms:Seq[TransformationPrototype]) extends TransformationPrototype{
+  def toTransform():Tranformation[_,_]={
+    return new TransformationList(transforms.map { x => x.toTransform() }:_*);
+  }
+}
+object TransformationModelRegistry{
+   type PairOfType=Tuple2[Type,Type];
+   
+   var transforms=Map[PairOfType,TransformationPrototype]();
+
+   
+   
+   private[transform] def get(from: Type, to: Type):TransformationPrototype={
+     if (transforms.contains((from,to))){
+       return transforms.get((from,to)).get;
+     }
+     val t:PairOfType =(from,to);
+     val x=(t,NilPrototype);
+     transforms=transforms+x;
+     val tr=new OneWayTransform(from,to).build();
+     if (tr!=null){
+       val at=(t,tr);
+       transforms=transforms+at; 
+     }
+     return null;
+   }
+   def transformer(from: Type, to: Type):TransformationPrototype={
+     val x=get(from,to);
+     if (x==NilPrototype){
+       return null;
+     }
+     return x;
+   }
+}
+
 
 case class OneWayTransform(from: Type, to: Type) extends CanBuildTransform{
 
   type SomeTransform=TransformationPrototype;
   type UnknownTransformsOneToOne=TransformsOneToOne[_,_,_,_];
   
-  def build():Option[Seq[TransformationPrototype]] = {
+  def build():TransformationPrototype = {
     val sourceProp:Set[isPropertyOf[_]]=Entity.about(from,classOf[isPropertyOf[_]]);
     val tPropOf:Set[isPropertyOf[_]]=Entity.about(to,classOf[isPropertyOf[_]]);
     val tProps:Set[PropertyModel]=tPropOf.map { x => x.p };
     var noMappingTo=Set[PropertyModel]();
     var transforms=Map[PropertyModel,TransformationPrototype]();
     for (pOf<-sourceProp){
+        if (pOf.p.range()!=NothingType){
+        
         val howMapsToTarget:SomeTransform=buildPerfectMapping(pOf.p,tProps);
         if (howMapsToTarget==null){
           noMappingTo=noMappingTo+pOf.p;          
@@ -47,11 +88,12 @@ case class OneWayTransform(from: Type, to: Type) extends CanBuildTransform{
           var kv:Tuple2[PropertyModel,SomeTransform]=(pOf.p,howMapsToTarget);
           transforms=transforms+kv;
         }
+        }
     }
     if (!noMappingTo.isEmpty){
-      return None;
+      return null;
     }
-    return Some(transforms.values.toSeq);
+    return new TransformModel(transforms.values.toSeq);
   }
   def buildPerfectMapping(s:PropertyModel,target:Set[PropertyModel]):SomeTransform={
     
@@ -76,18 +118,27 @@ case class OneWayTransform(from: Type, to: Type) extends CanBuildTransform{
     null;
   }
   def buildTransform(fr:PropertyModel,to:PropertyModel):SomeTransform={
-    return OneToOne(fr,to);
+    if (fr.range()==to.range()){
+      //this is perfect equivalent
+      return OneToOne(fr,to);
+    }
+    val has=TransformationModelRegistry.get(fr.range(), to.range());
+    if (has!=null){
+      //we know how to transform types
+      return OneToOne(fr,to);
+    }
+    return null;
   }
 }
-case class TwoWayTransform(first: Type, another: Type) extends CanBuildTransform{
+case class TwoWayTransform(first: Type, another: Type){
 
   val FirstToAnother=OneWayTransform(first,another);
   val AnotherToFirst=OneWayTransform(another,first);
   
-  override def build():Option[Seq[TransformationPrototype]] = {
+  def build() = {
     FirstToAnother.build();
     AnotherToFirst.build();
-    ???
+    
   }
 }
 
@@ -96,12 +147,13 @@ object PropertyModelModel extends ModelType {
   val range = propOf(classOf[Type]);
 }
 
+
 object SourceMemberModel extends ModelType {  
   val name = str;
-  val elementsType = propOf(classOf[SourceMember])
+  val elementsType = propOf(classOf[IType])
 }
 object Mappings extends AssertionContainer {
-  PropertyModelModel<=>classOf[Property[_,_]]//We should check compatibility when stating it
+  PropertyModelModel<=>classOf[Prop[_,_]]//We should check compatibility when stating it
   SourceMemberModel<=>classOf[SourceMember];//We should be able to build transform proto without mapping
   PropertyModelModel.name <=> SourceMemberModel.name;
   PropertyModelModel.range <=> SourceMemberModel.elementsType;    

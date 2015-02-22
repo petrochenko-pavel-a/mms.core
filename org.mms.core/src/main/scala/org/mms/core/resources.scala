@@ -30,14 +30,17 @@ trait Entity[T <: Entity[T]] {
     Entity.register(c, f);
   }
   
-  def fact[T<:OneValueFact](t:Class[T]):T={
+  def fact[T>:Null<:OneValueFact](t:Class[T]):T={
     val z:scala.collection.immutable.Set[T]=about(t);
     if (z.size==1){
       return z.toList(0);
     }
-    return t.cast(null);//FIXME
+    return null;
   }
   def about[T<:FactAnnotation](t:Class[T]):scala.collection.immutable.Set[T]={
+    return directStatementsAboutThis(t);
+  }
+  def directStatementsAboutThis[T<:FactAnnotation](t:Class[T]):scala.collection.immutable.Set[T]={
     var v=Entity.annotations.get(this);
     if (v.isDefined){
       return v.get.filter { x => t.isInstance(x) }.asInstanceOf[Set[T]].toSet;

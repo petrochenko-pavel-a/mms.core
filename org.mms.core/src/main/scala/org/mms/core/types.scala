@@ -70,9 +70,9 @@ case class BuiltInType[T](val builtIn: Class[T]) extends Type with IType {
   def fullName(): String=builtIn.getName;
   
   override def about[T<:FactAnnotation](t:Class[T]):Set[T]={
-    val description=super.fact(classOf[IsDescribedIn]);
-    if (description!=null){
-      return description.model.about(t);
+    val description=super.directStatementsAboutThis(classOf[IsDescribedIn]);
+    if (description!=null&&description.size==1){
+      return description.toList(0).model.about(t);
     }
     if (t==classOf[isPropertyOf[_]]){
        var pr=Set[isPropertyOf[_]]();
