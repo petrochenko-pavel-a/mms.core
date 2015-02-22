@@ -28,6 +28,8 @@ class ModelType[T<:ModelType[_]](val superType: Type = null) extends Type {
   protected def str = new Prop(this, StrType);
   protected def int = new Prop(this, StrType);
   protected def propOf[T<:Type](t:T) = new Prop(this, t);
+  protected def list[T<:Type](t:Property[_,T]):Property[_,T] = {???};
+  
   protected def propOf[T](t:Class[T]) = new Prop(this, BuiltInType(t));
   protected def packageName:String=getClass.getPackage.getName;
   

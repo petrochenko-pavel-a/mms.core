@@ -138,7 +138,6 @@ case class TwoWayTransform(first: Type, another: Type){
   def build() = {
     FirstToAnother.build();
     AnotherToFirst.build();
-    
   }
 }
 
@@ -147,11 +146,26 @@ object PropertyModelModel extends ModelType {
   val range = propOf(classOf[Type]);
 }
 
-
 object SourceMemberModel extends ModelType {  
   val name = str;
   val elementsType = propOf(classOf[IType])
 }
+object TypeModel extends ModelType{
+  val typeNameProp=str;
+  val superTypeProp=propOf(TypeModel)
+}
+object ModelTypeModel extends ModelType(TypeModel){
+  val packageNameProp=str;
+  val properties=list(str)
+}
+object ITypeModel extends ModelType
+
+object SourceTypeModel extends ModelType{
+  val name=str;
+  val children=propOf(SourceMemberModel); 
+}
+
+
 object Mappings extends AssertionContainer {
   PropertyModelModel<=>classOf[Prop[_,_]]//We should check compatibility when stating it
   SourceMemberModel<=>classOf[SourceMember];//We should be able to build transform proto without mapping
