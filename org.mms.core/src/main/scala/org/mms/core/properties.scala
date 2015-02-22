@@ -43,6 +43,16 @@ private[core] class Prop[D<:ModelType[_],R<:Type](val domain:D,val range:R)exten
      //FIXME
      val z:HashMap[Prop[D,R],Field]=domain.metainf.pToFieldMap.asInstanceOf[HashMap[Prop[D,R],Field]];
      return z.get(this).get.getName;
-  }
-  
+  }  
 }
+
+private[core] abstract class DelegateProp[D<:ModelType[_],R<:Type](val p:Property[D,R])extends Property[D,R]{
+  def name():String={
+     return p.name();
+  }  
+  def domain():D=p.domain;
+  def range():R=p.range;
+}
+
+private[core] case class ListProp[D<:ModelType[_],R<:Type](override val p:Property[D,R])extends DelegateProp[D,R](p){}
+private[core] case class KeyProp[D<:ModelType[_],R<:Type](override val p:Property[D,R])extends DelegateProp[D,R](p){}

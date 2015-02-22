@@ -19,16 +19,64 @@ trait Type extends Entity[Type] {
    return s;
   }
   
+  def interfaces():Seq[Type];
+  
+  def directSubClasses():Set[Type]={
+    about(classOf[SubClassOf]).map { x => x.subClass };
+  }
+  def allSubClasses():Set[Type]={
+    val v:Set[Type]=about(classOf[SubClassOf]).map { x => x.subClass };
+    var m:Set[Type]=Set();
+    for (t<-v){
+      m=m++t.allSubClasses()+t;
+    }
+    return m;
+  }
+  
+  def isAssignableFrom(t:Type):Boolean={
+    if (this==t){
+      return true;
+    }
+    if (t.superType!=null){
+        if (isAssignableFrom(t.superType)){
+          return true;
+        }
+    }
+    if (t.interfaces()!=null){
+        for (z<-t.interfaces()){
+          if (isAssignableFrom(z)){
+            return true;
+          }
+        }
+    }
+    return false;
+  }
   override def toString()=typeName;
 }
-object NothingType extends ModelType;
-class ModelType[T<:ModelType[_]](val superType: Type = null) extends Type {
+case class SubClassOf(val superClass:Type,val subClass:Type) extends FactAnnotation;
 
+case class withTrait(val elements:Type*){}
+
+object NothingType extends ModelType{
+  override def interfaces():Seq[Type]=List();
+};
+class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:withTrait=withTrait()) extends Type {
+
+  {
+    if (superType!=null){
+      register(superType, SubClassOf(superType,this));
+    }
+    for(v<-withInterfaces.elements){
+      register(v, SubClassOf(v,this));
+    }
+  }
+  
   type UnknownProperty=Property[ModelType[_],_<:Type];
   protected def str = new Prop(this, StrType);
   protected def int = new Prop(this, StrType);
+  def interfaces()=withInterfaces.elements;
   protected def propOf[T<:Type](t:T) = new Prop(this, t);
-  protected def list[T<:Type](t:Property[_,T]):Property[_,T] = {???};
+  protected def list[T<:Type](t:Property[_<:ModelType[_],T]):Property[_<:ModelType[_],T] =ListProp(t);
   
   protected def propOf[T](t:Class[T]) = new Prop(this, BuiltInType(t));
   protected def packageName:String=getClass.getPackage.getName;
@@ -38,7 +86,10 @@ class ModelType[T<:ModelType[_]](val superType: Type = null) extends Type {
   def <=>(c:Class[_])={
     OnRuntimeIs(this,c);
     IsDescribedIn(this,c);
-   }
+  }
+  def <=>(c:Type)={
+    
+  }
   
   private[core] class MetaInf {
     val fToPropMap: HashMap[Field,UnknownProperty] = HashMap();
@@ -66,7 +117,17 @@ class ModelType[T<:ModelType[_]](val superType: Type = null) extends Type {
 
 
 case class BuiltInType[T](val builtIn: Class[T]) extends Type with IType {
-  def superType = new BuiltInType(builtIn.getSuperclass);
+  
+  def superType = if (builtIn.getSuperclass!=null)new BuiltInType(builtIn.getSuperclass) else null;
+  
+  def interfaces():Seq[Type]={
+    val q=builtIn.getInterfaces;
+    if (q!=null){
+      return q.map { x => BuiltInType(x) };
+    }
+    return List[Type]();
+  }
+  
   override def typeName: String = builtIn.getSimpleName();
   {OnRuntimeIs(this,builtIn)}
   def fullName(): String=builtIn.getName;
@@ -93,7 +154,6 @@ case class BuiltInType[T](val builtIn: Class[T]) extends Type with IType {
 object BuiltInType{
   implicit def toClass[T](x: BuiltInType[T]):Class[T] = x.builtIn;
   implicit def fromClass[T](x: Class[T]):BuiltInType[T] = new BuiltInType(x);
-    
 }
 
 object StrType extends BuiltInType(classOf[String]);

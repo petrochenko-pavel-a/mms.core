@@ -41,7 +41,6 @@ object TransformationModelRegistry{
    var transforms=Map[PairOfType,TransformationPrototype]();
 
    
-   
    private[transform] def get(from: Type, to: Type):TransformationPrototype={
      if (transforms.contains((from,to))){
        return transforms.get((from,to)).get;
@@ -49,7 +48,7 @@ object TransformationModelRegistry{
      val t:PairOfType =(from,to);
      val x=(t,NilPrototype);
      transforms=transforms+x;
-     val tr=new OneWayTransform(from,to).build();
+     val tr=new MultiTypeTransform(from,to).build();
      if (tr!=null){
        val at=(t,tr);
        transforms=transforms+at; 
@@ -64,9 +63,32 @@ object TransformationModelRegistry{
      return x;
    }
 }
+case class MultiTypeTransform(from: Type, to: Type)extends CanBuildTransform{
+  
+  def build():TransformationPrototype = {
+     var allF=from.allSubClasses()+from;
+     val allT=to.allSubClasses()+to;
+     if (allF.size==1){
+       return TransformBuilder(from,to).build();
+     }
+     else{
+       allF=allF--allT;
+       if (allF.size>1){
+         //we need to build descriminator here.
+         
+       }
+       else{
+         return TransformBuilder(from,to).build();
+       }
+     }
+     return null;
+  }
+}
 
-
-case class OneWayTransform(from: Type, to: Type) extends CanBuildTransform{
+/**
+ * builds mapping from exactly one type to another!!!
+ */
+case class TransformBuilder(from: Type, to: Type) extends CanBuildTransform{
 
   type SomeTransform=TransformationPrototype;
   type UnknownTransformsOneToOne=TransformsOneToOne[_,_,_,_];
@@ -91,6 +113,7 @@ case class OneWayTransform(from: Type, to: Type) extends CanBuildTransform{
         }
     }
     if (!noMappingTo.isEmpty){
+      println(from+"->"+to+":"+noMappingTo)
       return null;
     }
     return new TransformModel(transforms.values.toSeq);
@@ -111,17 +134,20 @@ case class OneWayTransform(from: Type, to: Type) extends CanBuildTransform{
             return tr;
           }
         }
-      }
-      
-    }
-    
+      }     
+    }    
     null;
   }
+  
   def buildTransform(fr:PropertyModel,to:PropertyModel):SomeTransform={
     if (fr.range()==to.range()){
       //this is perfect equivalent
       return OneToOne(fr,to);
     }
+    if (to.range.isAssignableFrom(fr.range)){
+      return OneToOne(fr,to);
+    }
+    
     val has=TransformationModelRegistry.get(fr.range(), to.range());
     if (has!=null){
       //we know how to transform types
@@ -129,53 +155,4 @@ case class OneWayTransform(from: Type, to: Type) extends CanBuildTransform{
     }
     return null;
   }
-}
-case class TwoWayTransform(first: Type, another: Type){
-
-  val FirstToAnother=OneWayTransform(first,another);
-  val AnotherToFirst=OneWayTransform(another,first);
-  
-  def build() = {
-    FirstToAnother.build();
-    AnotherToFirst.build();
-  }
-}
-
-object PropertyModelModel extends ModelType {
-  val name = str;
-  val range = propOf(classOf[Type]);
-}
-
-object SourceMemberModel extends ModelType {  
-  val name = str;
-  val elementsType = propOf(classOf[IType])
-}
-object TypeModel extends ModelType{
-  val typeNameProp=str;
-  val superTypeProp=propOf(TypeModel)
-}
-object ModelTypeModel extends ModelType(TypeModel){
-  val packageNameProp=str;
-  val properties=list(str)
-}
-object ITypeModel extends ModelType
-
-object SourceTypeModel extends ModelType{
-  val name=str;
-  val children=propOf(SourceMemberModel); 
-}
-
-
-object Mappings extends AssertionContainer {
-  PropertyModelModel<=>classOf[Prop[_,_]]//We should check compatibility when stating it
-  SourceMemberModel<=>classOf[SourceMember];//We should be able to build transform proto without mapping
-  PropertyModelModel.name <=> SourceMemberModel.name;
-  PropertyModelModel.range <=> SourceMemberModel.elementsType;    
-}
-
-
-object TestApp extends App{
-  Mappings.learn();
-  val v:SourceMember=Transformers.transform(SourceMemberModel.name,classOf[SourceMember]);
-  println(v);
 }
