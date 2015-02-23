@@ -67,10 +67,12 @@ object TransformationModelRegistry{
 }
 
 case class TypeAssertion(val condition:Predicate, val resultType: Type,val transform:TransformationPrototype);
-case class TypeDescriminator(assertions:TypeAssertion*);
+case class TypeDescriminator(sourceType:Type,assertions:TypeAssertion*);
 
 case class DescPrototypes(val descr:TypeDescriminator*) extends TransformationPrototype{
-  def toTransform():Tranformation[_,_] =null;
+  def toTransform():Tranformation[_,_] ={
+    return null;
+  };
 }
 
 case class MultiTypeTransform(from: Type, to: Type)extends CanBuildTransform{
@@ -85,7 +87,7 @@ case class MultiTypeTransform(from: Type, to: Type)extends CanBuildTransform{
      }
    }
    if (isComplete(assertions)){
-     return TypeDescriminator(assertions:_*);
+     return TypeDescriminator(t,assertions:_*);
    }
    return null; 
   }
@@ -195,7 +197,7 @@ case class TransformBuilder(from: Type, to: Type) extends CanBuildTransform{
     val has=TransformationModelRegistry.get(fr.range(), to.range());
     if (has!=null){
       //we know how to transform types
-      return OneToOne(fr,to);
+      return has;
     }
     return null;
   }
