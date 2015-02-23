@@ -15,7 +15,9 @@ import org.mms.core.codemodel.SourceType
 /**
  * code model related models
  */
-object ITypeModel extends ModelType
+object ITypeModel extends AbstractType{
+  
+}
 
 object SourceTypeModel extends ModelType(ITypeModel){
   val name=str;
@@ -54,13 +56,12 @@ object Mappings extends AssertionContainer {
   TypeModel<=>classOf[Type]
   PropertyModelModel<=>classOf[Prop[_,_]]//We should check compatibility when stating it
   ModelTypeModel<=>classOf[ModelType[_]];
-  
   ModelTypeModel<=>SourceTypeModel;
-  
   println(BuiltInTypeModel.properties());
   //no we should write how Type instances related to types
   PropertyModelModel.name <=> SourceMemberModel.name;
-  PropertyModelModel.range <=> SourceMemberModel.elementsType;    
+  PropertyModelModel.range <=> SourceMemberModel.elementsType; 
+  //TypeModel.superTypeProp.range.
 }
 
 object TestApp extends App{

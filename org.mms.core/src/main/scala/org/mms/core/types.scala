@@ -8,6 +8,7 @@ import org.mms.core.runtime.OnRuntimeIs
 import org.mms.core.runtime.RuntimeProperty
 import org.mms.core.runtime.IsDescribedIn
 import org.mms.core.runtime.IsDescribedIn
+import java.lang.reflect.Modifier
 
 trait Type extends Entity[Type] {
   def superType: Type
@@ -20,6 +21,7 @@ trait Type extends Entity[Type] {
   }
   
   def interfaces():Seq[Type];
+  def isAbstract():Boolean;
   
   def directSubClasses():Set[Type]={
     about(classOf[SubClassOf]).map { x => x.subClass };
@@ -57,11 +59,13 @@ case class SubClassOf(val superClass:Type,val subClass:Type) extends FactAnnotat
 
 case class withTrait(val elements:Type*){}
 
-object NothingType extends ModelType{
+object NothingType extends ModelType {
   override def interfaces():Seq[Type]=List();
+
+  override def isAbstract(): Boolean = true;
 };
 class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:withTrait=withTrait()) extends Type {
-
+  private var _abstract=false;
   {
     if (superType!=null){
       register(superType, SubClassOf(superType,this));
@@ -71,13 +75,16 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
     }
   }
   
+  def isAbstract():Boolean=_abstract;
+  
+  protected def abstractType{_abstract=true}
+  
   type UnknownProperty=Property[ModelType[_],_<:Type];
   protected def str = new Prop(this, StrType);
   protected def int = new Prop(this, StrType);
   def interfaces()=withInterfaces.elements;
   protected def propOf[T<:Type](t:T) = new Prop(this, t);
   protected def list[T<:Type](t:Property[_<:ModelType[_],T]):Property[_<:ModelType[_],T] =ListProp(t);
-  
   protected def propOf[T](t:Class[T]) = new Prop(this, BuiltInType(t));
   protected def packageName:String=getClass.getPackage.getName;
   
@@ -114,7 +121,9 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
   def properties():List[Property[ModelType[_],_<:Type]]=metainf.fToPropMap.values.toList;
   
 }
-
+class AbstractType[T<:ModelType[_]](override val superType: Type = null,override val withInterfaces:withTrait=withTrait()) extends ModelType[T](superType,withInterfaces) {
+  abstractType;
+}
 
 case class BuiltInType[T](val builtIn: Class[T]) extends Type with IType {
   
@@ -147,6 +156,10 @@ case class BuiltInType[T](val builtIn: Class[T]) extends Type with IType {
        return pr.asInstanceOf[Set[T]];
     }
     return super.about(t);    
+  }
+
+  def isAbstract(): Boolean = {
+    return Modifier.isAbstract(builtIn.getModifiers)||Modifier.isInterface(builtIn.getModifiers);
   }
   
 }

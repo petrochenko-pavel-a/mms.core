@@ -35,7 +35,9 @@ trait AssertionContainer {
   
   def learn(){};
 }
-
+trait Predicate{
+  
+}
 
 private[core] class Prop[D<:ModelType[_],R<:Type](val domain:D,val range:R)extends Property[D,R]{
 

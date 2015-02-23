@@ -63,19 +63,40 @@ object TransformationModelRegistry{
      return x;
    }
 }
+
+case class TypeAssertion(val condition:Predicate, val resultType: Type,val transform:TransformationPrototype);
+case class TypeDescriminator(assertions:TypeAssertion*);
+
+case class DescPrototypes(val descr:TypeDescriminator*) extends TransformationPrototype{
+  def toTransform():Tranformation[_,_] =null;
+}
+
 case class MultiTypeTransform(from: Type, to: Type)extends CanBuildTransform{
   
+  def buildDescriminator(t:Type,targets:Set[Type]):TypeDescriminator={
+   return null; 
+  }
+  
   def build():TransformationPrototype = {
-     var allF=from.allSubClasses()+from;
-     val allT=to.allSubClasses()+to;
+     var allF=(from.allSubClasses()+from);
+     allF=allF.filter { x => !x.isAbstract() }
+     val allT=(to.allSubClasses()+to).filter { x => !x.isAbstract() };
      if (allF.size==1){
        return TransformBuilder(from,to).build();
      }
      else{
        allF=allF--allT;
-       if (allF.size>1){
+       if (allF.size>1||allT.size>1){
          //we need to build descriminator here.
-         
+         var list=List[TypeDescriminator]()
+         for (t<-allF){
+           val descr=buildDescriminator(t,allT);
+           if(descr==null){
+             return null;
+           }
+           list=list.::(descr);
+         }
+         return DescPrototypes(list:_*);
        }
        else{
          return TransformBuilder(from,to).build();
