@@ -121,11 +121,27 @@ case class OneToOnePropertyTransform[D, D1, SR, TR](val sP: IRuntimeProperty[D, 
     tP.set(v2, tr);
   }
 }
+case class RuntimeCondition(){
+  
+}
+
+case class ConditionedAssertion[F,T](val condition:RuntimeCondition, val transform:Tranformation[F,T]){}
+case class RuntimeDescriminator[F,T](val tclass:Class[_],val assertions:ConditionedAssertion[F,T]*){}
+case class DescriminatedTransform[F,T](val descriminators:RuntimeDescriminator[F,T]*) extends TranformationFunction[F,T]{
+  
+  def apply(v:F):T={
+    ???
+  }
+}
 
 object OneToOnePropertyTransform {
-  def apply[D, D1, SR, TR](sP: IRuntimeProperty[D, SR], tP: IRuntimeProperty[D1, TR]): Tranformation[D, D1] = {
+  def apply[D, D1, SR, TR](sP: IRuntimeProperty[D, SR], tP: IRuntimeProperty[D1, TR], transFunc: TranformationFunction[SR, TR]=null): Tranformation[D, D1] = {
+    if (transFunc!=null){
+      return new OneToOnePropertyTransform[D, D1, SR, TR](sP, tP.asInstanceOf[IRuntimeProperty[D1, TR]], transFunc).asInstanceOf[Tranformation[D, D1]];
+    }
     val d1c = sP.range();
     val d2c = tP.range();
+    
     if (d1c == d2c) {
       return new IdenticalTransform[D, D1, SR](sP, tP.asInstanceOf[IRuntimeProperty[D1, SR]]).asInstanceOf[Tranformation[D, D1]];
     } else {

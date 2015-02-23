@@ -14,6 +14,7 @@ import org.mms.core.codemodel.SourceMember
 import org.mms.core.runtime.RuntimeImplicits._
 import org.mms.core.codemodel.IType
 import org.mms.core.runtime.MapsTo
+import org.mms.core.runtime.RuntimeImplicits
 
 trait CanBuildTransform{
   
@@ -31,7 +32,7 @@ case class OneToOne(val first:PropertyModel,another:PropertyModel) extends Trans
 object  NilPrototype extends TransformationPrototype{
   def toTransform():Tranformation[_,_]=null;  
 }
-class TransformModel(val transforms:Seq[TransformationPrototype]) extends TransformationPrototype{
+class CompositeTransformation(val transforms:Seq[TransformationPrototype]) extends TransformationPrototype{
   def toTransform():Tranformation[_,_]={
     return new TransformationList(transforms.map { x => x.toTransform() }:_*);
   }
@@ -69,10 +70,15 @@ object TransformationModelRegistry{
 case class TypeAssertion(val condition:Predicate, val resultType: Type,val transform:TransformationPrototype);
 case class TypeDescriminator(sourceType:Type,assertions:TypeAssertion*);
 
-case class DescPrototypes(val descr:TypeDescriminator*) extends TransformationPrototype{
+case class DescPrototypes(val first:PropertyModel,another:PropertyModel,val descr:TypeDescriminator*) extends TransformationPrototype{
+  type anyT=org.mms.core.runtime.IRuntimeProperty[Any,Any];
   def toTransform():Tranformation[_,_] ={
-    return null;
+    return OneToOnePropertyTransform(RuntimeImplicits.propToRuntime(first).asInstanceOf[anyT],RuntimeImplicits.propToRuntime(another).asInstanceOf[anyT],
+        convertDescriminator.asInstanceOf[TranformationFunction[Any,Any]]);
   };
+  def convertDescriminator():TranformationFunction[_,_]={
+    ???
+  }
 }
 
 case class MultiTypeTransform(from: Type, to: Type)extends CanBuildTransform{
@@ -162,7 +168,7 @@ case class TransformBuilder(from: Type, to: Type) extends CanBuildTransform{
       println(from+"->"+to+":"+noMappingTo)
       return null;
     }
-    return new TransformModel(transforms.values.toSeq);
+    return new CompositeTransformation(transforms.values.toSeq);
   }
   def buildPerfectMapping(s:PropertyModel,target:Set[PropertyModel]):SomeTransform={
     
