@@ -9,6 +9,7 @@ import org.mms.core.runtime.RuntimeProperty
 import org.mms.core.runtime.IsDescribedIn
 import org.mms.core.runtime.IsDescribedIn
 import java.lang.reflect.Modifier
+import org.mms.core.runtime.MapsTo
 
 trait Type extends Entity[Type] {
   def superType: Type
@@ -93,9 +94,12 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
   def <=>(c:Class[_])={
     OnRuntimeIs(this,c);
     IsDescribedIn(this,c);
+    MapsTo(this,BuiltInType(c));
   }
+  
   def <=>(c:Type)={
-    
+    MapsTo(this,c);
+    MapsTo(c,this);
   }
   
   private[core] class MetaInf {

@@ -16,15 +16,20 @@ trait Property[DomainType<:Type,RangeType<:Type] extends Entity[Property[DomainT
    def range():RangeType
    def domain():DomainType
    def name():String;
+   
    def init(){
      register(domain,isPropertyOf(domain,this));
      register(range,isRangeOf(range,this));
+     //we need unregister3
+     
+     
    }
    init();
    
    override def toString():String={
-     domain()+"."+name+":"+range();
+     domain()+"."+name+typeDescr();
    }
+   def typeDescr()=":"+range();
 
    def <=>[A<:Type,B<:Type](p:Property[_,_]):PropertyAssertion=TransformsOneToOne(this,p.asInstanceOf[Property[A,B]]);
    
@@ -33,28 +38,50 @@ trait PropertyAssertion extends FactAnnotation with Entity[PropertyAssertion]
 
 trait AssertionContainer {
   
-  def learn(){};
+  def definitions():Unit;
+  
+  def learn(){
+    definitions();
+  };
 }
 trait Predicate{
   
+
+ 
+}
+object Predicate{
+  object TRUE extends Predicate{}
+  object FALSE extends Predicate{}
 }
 
-private[core] class Prop[D<:ModelType[_],R<:Type](val domain:D,val range:R)extends Property[D,R]{
-
+private abstract class ObjectDefinedProp[D<:ModelType[_],R<:Type](val domain:D)extends Property[D,R]{
+  
+  def field():Field={
+    val z:HashMap[ObjectDefinedProp[D,R],Field]=domain.metainf.pToFieldMap.asInstanceOf[HashMap[ObjectDefinedProp[D,R],Field]];
+    val x=z.get(this);
+    if (!x.isDefined){
+      return null;
+    }
+    return x.get;
+  }
   def name():String={
-     //FIXME
-     val z:HashMap[Prop[D,R],Field]=domain.metainf.pToFieldMap.asInstanceOf[HashMap[Prop[D,R],Field]];
-     return z.get(this).get.getName;
-  }  
+     val f=field;
+     if (f==null){
+       return "<unbinded prop>";
+     }
+     return field.getName;
+  }
 }
 
-private[core] abstract class DelegateProp[D<:ModelType[_],R<:Type](val p:Property[D,R])extends Property[D,R]{
-  def name():String={
-     return p.name();
-  }  
-  def domain():D=p.domain;
+private[core] class Prop[D<:ModelType[_],R<:Type](override val domain:D,val range:R) extends ObjectDefinedProp[D,R](domain) ;
+
+private[core] abstract class DelegateProp[D<:ModelType[_],R<:Type](val p:Property[D,R])extends ObjectDefinedProp[D,R](p.domain()){
+  remove(p);
   def range():R=p.range;
 }
 
-private[core] case class ListProp[D<:ModelType[_],R<:Type](override val p:Property[D,R])extends DelegateProp[D,R](p){}
+private[core] case class ListProp[D<:ModelType[_],R<:Type](override val p:Property[D,R])extends DelegateProp[D,R](p){
+  override def typeDescr()=":list("+range()+")";
+  
+}
 private[core] case class KeyProp[D<:ModelType[_],R<:Type](override val p:Property[D,R])extends DelegateProp[D,R](p){}

@@ -88,10 +88,9 @@ object Transformers {
   }
 
   def buildTransform[A, B](v: Class[A], rt: Class[B]): RegisterableTransformer[A, B] = {
-    
-    val bl=TransformationModelRegistry.transformer(v, rt);
-    if (bl!=null){
-    return CalculatedTransform(v,rt,bl.toTransform().asInstanceOf);
+    val bl = TransformationModelRegistry.transformer(v, rt);
+    if (bl != null) {
+      return CalculatedTransform(v, rt, bl.toTransform().asInstanceOf[Tranformation[A, B]]);
     }
     return null;
   }

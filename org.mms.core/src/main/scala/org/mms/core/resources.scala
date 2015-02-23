@@ -4,9 +4,13 @@ import collection.mutable.{ HashMap, MultiMap, Set }
 object Entity {
   private var annotations = new HashMap[Entity[_], Set[FactAnnotation]] with MultiMap[Entity[_], FactAnnotation];
 
-  protected def register(e: Entity[_], f: FactAnnotation) {
+  protected def registerElement(e: Entity[_], f: FactAnnotation) {
     
     annotations.addBinding(e, f);
+    //TODO CHECK OneValue
+  }
+  protected def unregisterElement(e: Entity[_], f: FactAnnotation) {
+    annotations.removeBinding(e, f);
     //TODO CHECK OneValue
   }
   
@@ -16,18 +20,31 @@ object Entity {
 }
 trait FactAnnotation {
   
+  
 }
+
 trait OneValueFact extends FactAnnotation{
   
 }
 
-
-case class Description(val value:String) extends FactAnnotation;
+case class Description(val value:String) extends FactAnnotation{
+  
+}
 
 trait Entity[T <: Entity[T]] {
 
-  protected def register(c:Entity[_],f:FactAnnotation){
-    Entity.register(c, f);
+  var annotations=List[Tuple2[Entity[_],FactAnnotation]]();
+  
+  protected def register[X<:Entity[X]](c:Entity[X],f:FactAnnotation){
+    Entity.registerElement(c, f);
+    val tp:Tuple2[Entity[X],FactAnnotation]=(c,f);
+    annotations=annotations.::(tp);
+  }
+  
+  protected def remove(c:Entity[T]){
+     for( a<-c.annotations){
+       Entity.unregisterElement(a._1, a._2);       
+     }     
   }
   
   def fact[T>:Null<:OneValueFact](t:Class[T]):T={

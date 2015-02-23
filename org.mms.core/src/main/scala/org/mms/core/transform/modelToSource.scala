@@ -15,15 +15,16 @@ import org.mms.core.codemodel.SourceType
 /**
  * code model related models
  */
-object ITypeModel extends AbstractType{
-  
+object ITypeModel extends AbstractType {
+
 }
 
-object SourceTypeModel extends ModelType(ITypeModel){
-  val name=str;
-  val children=propOf(SourceMemberModel); 
+object SourceTypeModel extends ModelType(ITypeModel) {
+  val name = str;
+  val packageNameProp=str;
+  val children = list(propOf(SourceMemberModel));
 }
-object SourceMemberModel extends ModelType {  
+object SourceMemberModel extends ModelType {
   val name = str;
   val elementsType = propOf(classOf[IType])
 }
@@ -31,13 +32,13 @@ object SourceMemberModel extends ModelType {
 /**
  * meta model relateed models
  */
-object TypeModel extends ModelType{
-  val typeNameProp=str;
-  val superTypeProp=propOf(TypeModel)
+object TypeModel extends ModelType {
+  val typeNameProp = str;
+  val superTypeProp = propOf(TypeModel)
 }
-object ModelTypeModel extends ModelType(TypeModel){
-  val packageNameProp=str;
-  val propertiesProp=list(str)
+object ModelTypeModel extends ModelType(TypeModel) {
+  val packageNameProp = str;
+  val propertiesProp = list(propOf(PropertyModelModel));
 }
 object PropertyModelModel extends ModelType {
   val name = str;
@@ -45,27 +46,31 @@ object PropertyModelModel extends ModelType {
 }
 
 //this type is a member of both models
-object BuiltInTypeModel extends ModelType(null,withTrait(ITypeModel,TypeModel))
+object BuiltInTypeModel extends ModelType(null, withTrait(ITypeModel, TypeModel))
 
 //Knowledge data should not be global!!! //FIXME
 object Mappings extends AssertionContainer {
   //first init mappings to classes;
-  ITypeModel<=>classOf[IType];
-  SourceTypeModel<=>classOf[SourceType];
-  SourceMemberModel<=>classOf[SourceMember];//We should be able to build transform proto without mapping
-  TypeModel<=>classOf[Type]
-  PropertyModelModel<=>classOf[Prop[_,_]]//We should check compatibility when stating it
-  ModelTypeModel<=>classOf[ModelType[_]];
-  ModelTypeModel<=>SourceTypeModel;
-  println(BuiltInTypeModel.properties());
-  //no we should write how Type instances related to types
-  PropertyModelModel.name <=> SourceMemberModel.name;
-  PropertyModelModel.range <=> SourceMemberModel.elementsType; 
+  def definitions() = {
+    ITypeModel <=> classOf[IType];
+    SourceTypeModel <=> classOf[SourceType];
+    SourceMemberModel <=> classOf[SourceMember]; //We should be able to build transform proto without mapping
+    TypeModel <=> classOf[Type]
+    PropertyModelModel <=> classOf[Prop[_, _]] //We should check compatibility when stating it
+    ModelTypeModel <=> classOf[ModelType[_]];
+    ModelTypeModel <=> SourceTypeModel;
+    println(BuiltInTypeModel);
+    ModelTypeModel.packageNameProp<=>SourceTypeModel.packageNameProp;
+    ModelTypeModel.propertiesProp<=>SourceTypeModel.children;
+    //no we should write how Type instances related to types
+    PropertyModelModel.name <=> SourceMemberModel.name;
+    PropertyModelModel.range <=> SourceMemberModel.elementsType;
+  }
   //TypeModel.superTypeProp.range.
 }
 
-object TestApp extends App{
+object TestApp extends App {
   Mappings.learn();
-  val v:SourceMember=Transformers.transform(SourceMemberModel.name,classOf[SourceMember]);
+  val v: SourceMember = Transformers.transform(SourceMemberModel.name, classOf[SourceMember]);
   println(v);
 }

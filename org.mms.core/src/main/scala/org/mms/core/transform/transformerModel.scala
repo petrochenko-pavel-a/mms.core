@@ -11,8 +11,9 @@ import org.mms.core.FactAnnotation
 import org.mms.core.isPropertyOf
 import org.mms.core._
 import org.mms.core.codemodel.SourceMember
-import org.mms.core.runtime.RuntimeImplicits._;
+import org.mms.core.runtime.RuntimeImplicits._
 import org.mms.core.codemodel.IType
+import org.mms.core.runtime.MapsTo
 
 trait CanBuildTransform{
   
@@ -52,8 +53,9 @@ object TransformationModelRegistry{
      if (tr!=null){
        val at=(t,tr);
        transforms=transforms+at; 
+       
      }
-     return null;
+     return tr;
    }
    def transformer(from: Type, to: Type):TransformationPrototype={
      val x=get(from,to);
@@ -74,8 +76,29 @@ case class DescPrototypes(val descr:TypeDescriminator*) extends TransformationPr
 case class MultiTypeTransform(from: Type, to: Type)extends CanBuildTransform{
   
   def buildDescriminator(t:Type,targets:Set[Type]):TypeDescriminator={
+   val mappings=t.about(classOf[MapsTo]);
+   var assertions=List[TypeAssertion]();
+   for (m<-mappings){
+     if (targets.contains(m.another)){
+       val assertion:TypeAssertion=buildAssertion(m);    
+       assertions=assertions.::(assertion);
+     }
+   }
+   if (isComplete(assertions)){
+     return TypeDescriminator(assertions:_*);
+   }
    return null; 
   }
+  def isComplete(assertions:List[TypeAssertion]):Boolean=(!assertions.isEmpty);
+  
+  def buildAssertion(m:MapsTo):TypeAssertion={
+    val trp=TransformationModelRegistry.get(m.first, m.another);
+    if (trp!=null){
+      return TypeAssertion(Predicate.TRUE,m.another,trp);
+    }
+    return null;
+  }
+  
   
   def build():TransformationPrototype = {
      var allF=(from.allSubClasses()+from);

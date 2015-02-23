@@ -51,15 +51,16 @@ case class ModelledRuntimeProperty[D,R](model:PropertyModel) extends IRuntimePro
   }
 }
 //TODO see how it stacks with build in types
-case class OnRuntimeIs(model:Type,clazz:Class[_])extends Entity[OnRuntimeIs] with FactAnnotation{
-  {
-    import RuntimeImplicits._;
-    register(model,this);
-    register(model,this);
-  }
+case class OnRuntimeIs(model:Type,clazz:Class[_])extends Entity[OnRuntimeIs] with FactAnnotation{  
+  import RuntimeImplicits._;
+  register(model,this);  
 }
 case class IsDescribedIn(model:ModelType[_<:ModelType[_]],buildIn:BuiltInType[_])extends Entity[IsDescribedIn] with OneValueFact{
   register(buildIn,this);
+}
+
+case class MapsTo(first:Type,another:Type)extends Entity[IsDescribedIn] with OneValueFact{
+  register(first,this);  
 }
 
 object RuntimeImplicits {  
