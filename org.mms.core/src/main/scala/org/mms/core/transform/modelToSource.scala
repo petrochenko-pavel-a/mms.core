@@ -11,6 +11,10 @@ import org.mms.core.runtime.ICollectionProperty
 import org.mms.core.codemodel.SourceMember
 import org.mms.core.codemodel.SourceMember
 import org.mms.core.codemodel.SourceType
+import org.mms.core.codemodel.SourceType
+import org.mms.core.codemodel.IModelElement
+import org.mms.core.codemodel.IMember
+import org.mms.core.codemodel.IType
 
 /**
  * code model related models
@@ -21,7 +25,7 @@ object ITypeModel extends AbstractType {
 
 object SourceTypeModel extends ModelType(ITypeModel) {
   val name = str;
-  val packageNameProp=str;
+  val superClass = propOf(classOf[IType]);
   val children = list(propOf(SourceMemberModel));
 }
 object SourceMemberModel extends ModelType {
@@ -32,13 +36,14 @@ object SourceMemberModel extends ModelType {
 /**
  * meta model relateed models
  */
-object TypeModel extends ModelType {
-  val typeNameProp = str;
-  val superTypeProp = propOf(TypeModel)
+object TypeModel extends AbstractType {
+  val typeNameProp = str withName ("typeName");
+  val superTypeProp = propOf(TypeModel) withName ("superType")
+  
+  
 }
 object ModelTypeModel extends ModelType(TypeModel) {
-  val packageNameProp = str;
-  val propertiesProp = list(propOf(PropertyModelModel));
+  val props = list(propOf(PropertyModelModel)).withName("declaredProperties");
 }
 object PropertyModelModel extends ModelType {
   val name = str;
@@ -50,27 +55,33 @@ object BuiltInTypeModel extends ModelType(null, withTrait(ITypeModel, TypeModel)
 
 //Knowledge data should not be global!!! //FIXME
 object Mappings extends AssertionContainer {
-  //first init mappings to classes;
-  def definitions() = {
+
+  def typeMappings() {
     ITypeModel <=> classOf[IType];
     SourceTypeModel <=> classOf[SourceType];
     SourceMemberModel <=> classOf[SourceMember]; //We should be able to build transform proto without mapping
     TypeModel <=> classOf[Type]
-    PropertyModelModel <=> classOf[Prop[_, _]] //We should check compatibility when stating it
+    PropertyModelModel <=> classOf[Property[_, _]] //We should check compatibility when stating it
     ModelTypeModel <=> classOf[ModelType[_]];
     ModelTypeModel <=> SourceTypeModel;
-    println(BuiltInTypeModel);
-    ModelTypeModel.packageNameProp<=>SourceTypeModel.packageNameProp;
-    ModelTypeModel.propertiesProp<=>SourceTypeModel.children;
-    //no we should write how Type instances related to types
+    BuiltInTypeModel
+  }
+
+  //first init mappings to classes;
+  def definitions() = {
+    //type to source type conversion
+    
+    ModelTypeModel.props <=> SourceTypeModel.children;
+    TypeModel.typeNameProp <=> SourceTypeModel.name;
+    TypeModel.superTypeProp <=> SourceTypeModel.superClass
+    //Property to SourceMember conversion
     PropertyModelModel.name <=> SourceMemberModel.name;
     PropertyModelModel.range <=> SourceMemberModel.elementsType;
   }
-  //TypeModel.superTypeProp.range.
 }
 
 object TestApp extends App {
   Mappings.learn();
-  val v: SourceMember = Transformers.transform(SourceMemberModel.name, classOf[SourceMember]);
+  var v: IModelElement[_] = Transformers.transformer(classOf[ModelType[_]], classOf[SourceType])(SourceTypeModel);
   println(v);
 }

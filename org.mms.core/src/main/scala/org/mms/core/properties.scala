@@ -17,12 +17,14 @@ trait Property[DomainType<:Type,RangeType<:Type] extends Entity[Property[DomainT
    def domain():DomainType
    def name():String;
    
-   def init(){
+   def withDefault(defaultValue:Any):Property[DomainType,RangeType]=this;
+   
+   def withName(name:String):Property[DomainType,RangeType];
+   
+   protected def init(){
      register(domain,isPropertyOf(domain,this));
      register(range,isRangeOf(range,this));
      //we need unregister3
-     
-     
    }
    init();
    
@@ -32,15 +34,22 @@ trait Property[DomainType<:Type,RangeType<:Type] extends Entity[Property[DomainT
    def typeDescr()=":"+range();
 
    def <=>[A<:Type,B<:Type](p:Property[_,_]):PropertyAssertion=TransformsOneToOne(this,p.asInstanceOf[Property[A,B]]);
+  
    
 }
-trait PropertyAssertion extends FactAnnotation with Entity[PropertyAssertion]
+trait PropertyAssertion extends FactAnnotation with Entity[PropertyAssertion] with Function1[Seq[PropertyAssertion],PropertyAssertion]{
+  def apply(s:Seq[PropertyAssertion]):PropertyAssertion={
+    return this;
+  }
+}
 
 trait AssertionContainer {
   
+  def typeMappings();Unit;
   def definitions():Unit;
   
   def learn(){
+    typeMappings();
     definitions();
   };
 }
@@ -54,7 +63,11 @@ object Predicate{
   object FALSE extends Predicate{}
 }
 
-private abstract class ObjectDefinedProp[D<:ModelType[_],R<:Type](val domain:D)extends Property[D,R]{
+private abstract class ObjectDefinedProp[D<:ModelType[_],R<:Type](val domain:D,private var nameOverride:String=null)extends Property[D,R]{
+  
+  def withName(name:String):Property[D,R]={
+    nameOverride=name;return this;
+  }
   
   def field():Field={
     val z:HashMap[ObjectDefinedProp[D,R],Field]=domain.metainf.pToFieldMap.asInstanceOf[HashMap[ObjectDefinedProp[D,R],Field]];
@@ -65,6 +78,9 @@ private abstract class ObjectDefinedProp[D<:ModelType[_],R<:Type](val domain:D)e
     return x.get;
   }
   def name():String={
+     if (nameOverride!=null){
+       return nameOverride;
+     }
      val f=field;
      if (f==null){
        return "<unbinded prop>";
@@ -72,6 +88,7 @@ private abstract class ObjectDefinedProp[D<:ModelType[_],R<:Type](val domain:D)e
      return field.getName;
   }
 }
+
 
 private[core] class Prop[D<:ModelType[_],R<:Type](override val domain:D,val range:R) extends ObjectDefinedProp[D,R](domain) ;
 

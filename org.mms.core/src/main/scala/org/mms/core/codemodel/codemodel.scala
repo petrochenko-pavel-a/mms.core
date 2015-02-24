@@ -9,7 +9,9 @@ trait IModelElement[C <: IModelElement[_]] {
   def name: String;
   def parent: IModelElement[_];
   def children: List[C];
-  def children_(c: List[C]);
+  def children_=(c: List[C]): Unit;
+
+ 
 
   def dependsFrom(): Set[String] = {
     var deps: Set[String] = ownDeps();
@@ -17,8 +19,8 @@ trait IModelElement[C <: IModelElement[_]] {
     return deps;
   }
   protected def ownDeps() = Set[String]();
-  
-  override def toString():String=name;
+
+  override def toString(): String = name;
 
   def findAllChildren[T <: IModelElement[_]](t: Class[T], f: Function1[T, Boolean] = { x: T => true }): Seq[T] = {
     var x = List[T]()
@@ -54,13 +56,13 @@ trait IModel extends IModelElement[IPackage] {
     }
     return null;
   }
-    
+
 }
 trait IPackage extends IModelElement[ISourceUnit]
 
 trait ISourceUnit extends IModelElement[ISourceType]
 
-trait ISourceType extends IModelElement[IMember] {
+trait ISourceType extends IModelElement[IMember] with IType {
 
   def parentPackage() = getAncestorOfKind(classOf[IPackage]);
   def unit() = getAncestorOfKind(classOf[ISourceUnit]);
@@ -84,15 +86,19 @@ trait IMember extends IModelElement[Null] {
 class ModelElement[C <: IModelElement[_]] extends IModelElement[C] {
   var name: String = _;
   private var mParent: IModelElement[_] = null;
-  private var mChildren: List[ModelElement[_] with C] = List();
+  private var mChildren: List[C] = List();
 
   def parent(): IModelElement[_] = mParent;
 
-  def children: List[C] = mChildren;
+  def children(): List[C] = mChildren;
 
-  def children_(c: List[C]) {
-    for (ch <- mChildren) {
-      ch.mParent = null;
+  def children_=(c: List[C]) {
+    if (!mChildren.isEmpty) {
+      for (ch <- mChildren) {
+        if (ch.isInstanceOf[ModelElement[C]]){
+          ch.asInstanceOf[ModelElement[C]].mParent = null;
+        }
+      }
     }
     for (ch <- c) {
       val q = ch.asInstanceOf[ModelElement[_]]
@@ -100,21 +106,23 @@ class ModelElement[C <: IModelElement[_]] extends IModelElement[C] {
         val sp = q.mParent.asInstanceOf[ModelElement[C]];
         sp.mChildren = sp.mChildren.filter { x => x != q }
       }
+      q.mParent=this;
     }
+    this.mChildren=c;
   }
 }
 class Package extends ModelElement[ISourceUnit] with IPackage;
 class SourceUnit extends ModelElement[ISourceType] with ISourceUnit;
 class SourceType extends ModelElement[IMember] with ISourceType {
 
-  var superClass: String = _;
+  var superClass: IType = _;
 
   var superInterfaces: Set[String] = Set();
 
   protected override def ownDeps(): Set[String] = {
     var l = Set[String]();
     if (superClass != null) {
-      l += superClass;
+      l += superClass.fullName();
     }
     if (superInterfaces != null) {
       l = l ++ superInterfaces;
@@ -135,3 +143,5 @@ class SourceMember extends ModelElement[Null] with IMember {
   }
 }
 class CodeModel extends ModelElement[IPackage] with IModel;
+
+

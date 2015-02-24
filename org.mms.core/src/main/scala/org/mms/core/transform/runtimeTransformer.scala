@@ -52,6 +52,20 @@ class TransformerRegistry {
     return r;
   }
 }
+ case class CalculatedTransform[A, B](a: Class[A], b: Class[B], tr: Tranformation[A, B]) extends RegisterableTransformer[A, B] {
+
+    if (b.isAbstract()){
+      throw new IllegalStateException("Unable to create abstract classes");
+    }
+   
+    def apply(v1: A): B = {
+      val r = b.newInstance();
+      tr.apply(a.cast(v1), r);
+      return r;
+    }
+
+    def supports(): (Class[_], Class[_]) = (a, b);
+  }
 
 object Transformers {
 
@@ -76,21 +90,36 @@ object Transformers {
 
     return f(v);
   }
-  case class CalculatedTransform[A, B](a: Class[A], b: Class[B], tr: Tranformation[A, B]) extends RegisterableTransformer[A, B] {
+  def transformer[F, T <: Any](ft: Class[F], rt: Class[T]): TranformationFunction[F,T] = {
+    
+    val t = registry.transformer(ft, rt);
+    //
 
-    def apply(v1: A): B = {
-      val r = b.newInstance();
-      tr.apply(a.cast(v1), r);
-      return r;
+    if (t == null) {
+      val bt: RegisterableTransformer[F, T] = buildTransform(ft, rt);
+      if (bt != null) {
+        registry.register(bt);
+        return bt;
+      }
+      throw new IllegalArgumentException(s"Can not transform ${ft} to ${rt}")
     }
-
-    def supports(): (Class[_], Class[_]) = (a, b);
+    val f: TranformationFunction[F, T] = t.asInstanceOf[TranformationFunction[F, T]];
+    return f;
   }
+ 
 
   def buildTransform[A, B](v: Class[A], rt: Class[B]): RegisterableTransformer[A, B] = {
     val bl = TransformationModelRegistry.transformer(v, rt);
     if (bl != null) {
-      return CalculatedTransform(v, rt, bl.toTransform().asInstanceOf[Tranformation[A, B]]);
+      val x:TranformationFunction[A,B]=bl.toTransform(v,rt).asInstanceOf[TranformationFunction[A,B]];
+    
+      return new RegisterableTransformer[A,B](){
+        def supports(): Tuple2[Class[_], Class[_]]=(v,rt);
+        
+        def apply(a:A):B={
+          return x.apply(a);
+        }
+      }
     }
     return null;
   }
@@ -100,6 +129,12 @@ object Transformers {
   }
 }
 case class TransformationList[D, D1](val seq: Tranformation[D, D1]*) extends Tranformation[D, D1] {
+  {
+    if(seq.contains(null)){
+      throw new IllegalArgumentException;
+    }
+    
+  }
   def apply(v1: D, v2: D1): Unit = {
     for (i <- seq) {
       i(v1, v2);
@@ -122,26 +157,69 @@ case class OneToOnePropertyTransform[D, D1, SR, TR](val sP: IRuntimeProperty[D, 
   }
 }
 case class RuntimeCondition(){
+  def satisfy(v:Any):Boolean=true;
   
 }
 
-case class ConditionedAssertion[F,T](val condition:RuntimeCondition, val transform:Tranformation[F,T]){}
-case class RuntimeDescriminator[F,T](val tclass:Class[_],val assertions:ConditionedAssertion[F,T]*){}
-case class DescriminatedTransform[F,T](val descriminators:RuntimeDescriminator[F,T]*) extends TranformationFunction[F,T]{
+case class ConditionedAssertion[F,T](val condition:RuntimeCondition, val transformer:TranformationFunction[F,T]){
+  {
+    if (condition==null||transformer==null){
+      throw new IllegalStateException("Should never be null")
+    }
+    
+  }
+  
+  def transform(value:Any):T={
+    if (condition.satisfy(value)){
+      return transformer.apply(value.asInstanceOf[F]);
+    }
+    return null.asInstanceOf[T];
+  }
+}
+case class RuntimeDescriminator[F,T](val slass:Class[_],val assertions:ConditionedAssertion[F,T]*){
+  def transform(value:Any):Any={
+    if (slass.isInstance(value)){
+      for (a<-assertions){
+        val t=a.transform(value);
+        if (t!=null){
+          return t;
+        }
+      }
+    }
+    return null;
+  }
+}
+case class DescriminatedTransform[F,T](val targetClass:Class[_],val descriminators:RuntimeDescriminator[F,T]*) extends TranformationFunction[F,T]{
   
   def apply(v:F):T={
-    ???
+    if (v==null){
+      return null.asInstanceOf[T];
+    }
+    if (targetClass.isInstance(v)){
+      return targetClass.cast(v).asInstanceOf[T];
+    }
+    for (d<-descriminators){
+      val z=d.transform(v);
+      if (z!=null){
+        return targetClass.cast(z).asInstanceOf[T];
+      }
+    }
+    println("Apply:"+v);
+    return null.asInstanceOf[T];
   }
 }
 
 object OneToOnePropertyTransform {
-  def apply[D, D1, SR, TR](sP: IRuntimeProperty[D, SR], tP: IRuntimeProperty[D1, TR], transFunc: TranformationFunction[SR, TR]=null): Tranformation[D, D1] = {
-    if (transFunc!=null){
-      return new OneToOnePropertyTransform[D, D1, SR, TR](sP, tP.asInstanceOf[IRuntimeProperty[D1, TR]], transFunc).asInstanceOf[Tranformation[D, D1]];
-    }
-    val d1c = sP.range();
-    val d2c = tP.range();
+  def createWithTransform[D, D1, SR, TR](sP: IRuntimeProperty[D, SR], tP: IRuntimeProperty[D1, TR], transFunc: TranformationFunction[_, _]=null): Tranformation[D, D1] = {
     
+    val x=transFunc.asInstanceOf[TranformationFunction[SR,TR]];
+    return new OneToOnePropertyTransform[D, D1, SR, TR](sP, tP.asInstanceOf[IRuntimeProperty[D1, TR]],x ).asInstanceOf[Tranformation[D, D1]];    
+  }
+  
+  def apply[D, D1, SR, TR](sP: IRuntimeProperty[D, SR], tP: IRuntimeProperty[D1, TR]): Tranformation[D, D1] = {
+    
+    val d1c = sP.range();
+    val d2c = tP.range();    
     if (d1c == d2c) {
       return new IdenticalTransform[D, D1, SR](sP, tP.asInstanceOf[IRuntimeProperty[D1, SR]]).asInstanceOf[Tranformation[D, D1]];
     } else {
@@ -154,6 +232,9 @@ case class identityFunction[R]() extends TranformationFunction[R, R] {
   def apply(v1: R) = v1;
 }
 
+case class composeFunction[R, A,R1](val f:TranformationFunction[R, A],s:TranformationFunction[A, R1]) extends TranformationFunction[R, R1] {
+  def apply(v1: R) = s(f(v1));
+}
 case class transformFunction[R, R1](cl: Class[R1]) extends TranformationFunction[R, R1] {
   def apply(v1: R) = Transformers.transform(v1, cl);
 }
