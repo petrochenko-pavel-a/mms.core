@@ -96,7 +96,6 @@ private case class OverrideProperty[DomainType<:Type,RangeType<:Type](val c:Prop
    override def about[T<:FactAnnotation](t:Class[T]):scala.collection.immutable.Set[T]={
     return c.about(t)++s.about(t);
    }
-   def withName(name:String):Property[DomainType,RangeType]={throw new UnsupportedOperationException()}
    override def toString():String=c.toString();      
 }
 case class SubClassOf(val superClass:Type,val subClass:Type) extends FactAnnotation;
@@ -124,19 +123,39 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
     }
   }
   
+  override def hashCode():Int={
+    return typeName.hashCode()+packageName.hashCode();
+  };
+  override def equals(v:Any):Boolean={
+    if (v==null){
+      return false;
+    }
+    if (v.getClass()==this.getClass){
+      return true;
+    }
+    return false;
+  }
+  
+  
   def isAbstract():Boolean=_abstract;
   
   protected def abstractType{_abstract=true}
   
   type UnknownProperty=Property[ModelType[_],_<:Type];
-  protected def str = new Prop(this, StrType);
-  protected def int = new Prop(this, StrType);
+  protected def str = propOf(StrType);
+  protected def int = propOf(StrType);
+  protected def bool = propOf(classOf[Boolean]);
   def interfaces()=withInterfaces.elements;
-  protected def propOf[T<:Type](t:T) = new Prop(this, t);
-  
+  protected def propOf[T<:Type](t:T) = 
+  {
+    var v=new Prop(this, t);
+    if(StackDetails.prop.get!=null){
+      v=new SubProp(this, t,StackDetails.prop.get);      
+    }
+    v;
+  }
+  protected def key[T<:Type](t:Property[_<:ModelType[_],T]):Property[_<:ModelType[_],T] =t;
   protected def optional[T<:Type](t:Property[_<:ModelType[_],T]):Property[_<:ModelType[_],T] =t;
-  
-  
   protected def required[T<:Type](t:Property[_<:ModelType[_],T]):Property[_<:ModelType[_],T] =t;
   protected def list[T<:Type](t:Property[_<:ModelType[_],T]):Property[_<:ModelType[_],T] =ListProp(t);
   protected def propOf[T](t:Class[T]) = new Prop(this, BuiltInType(t));

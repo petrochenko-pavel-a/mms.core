@@ -9,34 +9,56 @@ import org.mms.core.runtime.IRuntimeProperty
 case class isPropertyOf[T<:Type](val t:T,p:PropertyModel)extends FactAnnotation;
 case class isRangeOf[T<:Type](val t:T,p:PropertyModel)extends FactAnnotation;
 
+
+protected[core] object StackDetails{
+  var prop:ThreadLocal[Property[_<:Type,_<:Type]]=new ThreadLocal();
+}
 /**
  * @author kor
  */
 trait Property[DomainType<:Type,RangeType<:Type] extends Entity[Property[DomainType,RangeType]]{
+   
+   
+   
+   def $():RangeType ={
+     val r=range().getClass;
+     val constructor=range.getClass.getDeclaredConstructor();
+     try{
+     StackDetails.prop.set(this);
+     constructor.setAccessible(true);
+     val result=constructor.newInstance();
+     return result;
+     }finally {
+     StackDetails.prop.set(null);  
+     }     
+   };
+   
    def range():RangeType
    def domain():DomainType
    def name():String;
    
    def withDefault(defaultValue:Any):Property[DomainType,RangeType]=this;
    
-   def withName(name:String):Property[DomainType,RangeType];
+   def withName(name:String):Property[DomainType,RangeType]=this;
    
    protected def init(){
-     register(domain,isPropertyOf(domain,this));
-     register(range,isRangeOf(range,this));
+     if (StackDetails.prop.get==null){
+       register(domain,isPropertyOf(domain,this));
+       register(range,isRangeOf(range,this));
+     }
      //we need unregister3
    }
    init();
    
    override def toString():String={
-     domain()+"."+name+typeDescr();
+     domainString()+"."+name+typeDescr();
    }
+   protected[core] def domainString()=domain().toString();
    def typeDescr()=":"+range();
 
    def <=>[A<:Type,B<:Type](p:Property[_,_]):PropertyAssertion=TransformsOneToOne(this,p.asInstanceOf[Property[A,B]]);
-  
-   
 }
+
 trait PropertyAssertion extends FactAnnotation with Entity[PropertyAssertion] with Function1[Seq[PropertyAssertion],PropertyAssertion]{
   def apply(s:Seq[PropertyAssertion]):PropertyAssertion={
     return this;
@@ -65,7 +87,7 @@ object Predicate{
 
 private abstract class ObjectDefinedProp[D<:ModelType[_],R<:Type](val domain:D,private var nameOverride:String=null)extends Property[D,R]{
   
-  def withName(name:String):Property[D,R]={
+  override def withName(name:String):Property[D,R]={
     nameOverride=name;return this;
   }
   
@@ -86,11 +108,23 @@ private abstract class ObjectDefinedProp[D<:ModelType[_],R<:Type](val domain:D,p
        return "<unbinded prop>";
      }
      return field.getName;
-  }
+  }  
 }
 
 
 private[core] class Prop[D<:ModelType[_],R<:Type](override val domain:D,val range:R) extends ObjectDefinedProp[D,R](domain) ;
+private[core] class SubProp[D<:ModelType[_],R<:Type](override val domain:D,override val range:R,val parent:Property[_<:Type,_<:Type]) extends Prop[D,R](domain,range) {
+  
+  override def domainString():String=parent.domainString()+"."+parent.name()+".$";
+  
+  
+  def rootProperty():Property[_<:Type,_<:Type]={
+    if (parent.isInstanceOf[SubProp[_,_]]){
+      return parent.asInstanceOf[SubProp[_,_]].rootProperty();
+    }
+    return parent;
+  }
+}
 
 private[core] abstract class DelegateProp[D<:ModelType[_],R<:Type](val p:Property[D,R])extends ObjectDefinedProp[D,R](p.domain()){
   remove(p);

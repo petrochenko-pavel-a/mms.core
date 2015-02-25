@@ -14,15 +14,25 @@ object Person extends ModelType() {
   val age = int;
 }
 
+object XXX{
+  val xxA:String="AA";
+}
+
 object TestApp extends App {
   
    
   var m:CodeModel=new CodeModel();
   
-  
+  print(XXX.xxA);
   var t=new SourceType();
   t.name="Hello";
   println(t)
+  val z=Class.forName("org.mms.demo.XXX$").getDeclaredConstructor();
+  z.setAccessible(true);
+  val ma=z.newInstance();
+  val mm=ma.getClass.getMethod("xxA").invoke(ma);
+  println(mm)
+  
   /*var s = CodeWriter("C:\\work\\jaxrs-raml-converters\\org.mms.test\\src\\");
   var u=new ScalaUniverse();
   var sa:BuiltInType[_]=classOf[String];*/

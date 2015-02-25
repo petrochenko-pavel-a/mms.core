@@ -46,7 +46,16 @@ case class ReflectionSetter[D](val method: Method) extends Function2[D, Object, 
 case class ModelledRuntimeProperty[D, R](model: PropertyModel) extends IRuntimeProperty[D, R] {
   import RuntimeImplicits._;
 
-  val actual: RuntimeProperty[D, R] = RuntimeProperty(model.domain, model.name()).asInstanceOf[RuntimeProperty[D, R]];
+  val actual: RuntimeProperty[D, R] = 
+  {
+    if (model.isInstanceOf[SubProp[_,_]]){
+      val x=RuntimeProperty(model.domain, model.name()).asInstanceOf[RuntimeProperty[D, R]];
+      null;
+    }
+    else{
+     RuntimeProperty(model.domain, model.name()).asInstanceOf[RuntimeProperty[D, R]];
+    }
+  }
 
   def meta(): PropertyModel = model;
 
@@ -94,7 +103,7 @@ class RuntimeMeta[D, R](val pn: String, dC: Class[D], rC: Class[R]) extends Prop
 
   def range(): BuiltInType[R] = rC;
 
-  def withName(name: String): Property[BuiltInType[D], BuiltInType[R]] = {
+  override def withName(name: String): Property[BuiltInType[D], BuiltInType[R]] = {
     throw new UnsupportedOperationException();
   }
 }

@@ -228,6 +228,12 @@ case class TransformBuilder(from: Type, to: Type) extends CanBuildTransform {
     for (x <- assertions) {
       x match {
         case TransformsOneToOne(sp, tp) => {
+          if (tp.isInstanceOf[SubProp[_,_]]){
+            if (target.contains(tp.asInstanceOf[SubProp[_,_]].rootProperty)){
+               val tr: SomeTransform = buildTransform(sp, tp);
+               return tr; 
+            }
+          }
           if (target.contains(tp)) {
             val tr: SomeTransform = buildTransform(sp, tp);
             return tr;
