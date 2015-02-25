@@ -34,14 +34,23 @@ object PackageElementModel extends ModelType() {
   val name = key(str);
   val parent = required(propOf(CodeModelModel));
   val children = list(propOf(SourceTypeModel));
+  
+  
 }
 
 object SourceTypeModel extends ModelType(ITypeModel) {
   val name = key(str);
   val superClass = propOf(classOf[IType]);
   val children = list(propOf(SourceMemberModel));
+  
   val parent = required(propOf(PackageElementModel))
+  
+  ParentChildAssertion(parent,parent.$.children);
+  
+  //listof
 }
+
+
 
 object SourceMemberModel extends ModelType {
   val name = str;
@@ -85,19 +94,27 @@ object Mappings extends AssertionContainer {
 
   //first init mappings to classes;
   def definitions() = {
+    
+    import SourceTypeModel._;
     //type to source type conversion
-    ModelTypeModel.props <=> SourceTypeModel.children;
-    TypeModel.typeNameProp <=> SourceTypeModel.name;
-    TypeModel.superTypeProp <=> SourceTypeModel.superClass
-    ModelTypeModel.modelPackage <=> SourceTypeModel.parent.$.name;
+    ModelTypeModel.props <=> children;
+    TypeModel.typeNameProp <=> name;
+    TypeModel.superTypeProp <=> superClass
+    ModelTypeModel.modelPackage <=> parent.$.name;
     
     //Property to SourceMember conversion
     PropertyModelModel.name <=> SourceMemberModel.name;
     PropertyModelModel.range <=> SourceMemberModel.elementsType;    
   }
 }
+object TargetTest1 extends App {
+  
+}
 
 object TestApp extends App {
+  
+  
+  
   Mappings.learn();
   var v: IModelElement[_] = Transformers.transformer(classOf[ModelType[_]], classOf[SourceType])(SourceTypeModel);
   println(v);

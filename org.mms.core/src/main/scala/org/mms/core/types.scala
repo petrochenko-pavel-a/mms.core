@@ -113,6 +113,9 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
   
   def modelType():ModelType[_]=this;
   
+  
+  
+  
   private var _abstract=false;
   {
     if (superType!=null){
@@ -146,19 +149,23 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
   protected def int = propOf(StrType);
   protected def bool = propOf(classOf[Boolean]);
   def interfaces()=withInterfaces.elements;
-  protected def propOf[T<:Type](t:T) = 
+  protected def propOf[T<:Type](t:T) :Property[this.type,T]= 
   {
-    var v=new Prop(this, t);
+    
+    var v=new Prop[this.type,T](this, t);
     if(StackDetails.prop.get!=null){
-      v=new SubProp(this, t,StackDetails.prop.get);      
+      v=new SubProp[this.type,T](this, t,StackDetails.prop.get);      
     }
     v;
   }
-  protected def key[T<:Type](t:Property[_<:ModelType[_],T]):Property[_<:ModelType[_],T] =t;
-  protected def optional[T<:Type](t:Property[_<:ModelType[_],T]):Property[_<:ModelType[_],T] =t;
-  protected def required[T<:Type](t:Property[_<:ModelType[_],T]):Property[_<:ModelType[_],T] =t;
-  protected def list[T<:Type](t:Property[_<:ModelType[_],T]):Property[_<:ModelType[_],T] =ListProp(t);
-  protected def propOf[T](t:Class[T]) = new Prop(this, BuiltInType(t));
+  protected def listOf[T<:Type](t:T):Property[this.type,T] =list(propOf(t));
+  protected def key[T<:Type](t:Property[this.type,T]):Property[this.type,T] =t;
+  protected def optional[T<:Type](t:Property[this.type,T]):Property[this.type,T] =t;
+  protected def required[T<:Type](t:Property[this.type,T]):Property[this.type,T] =t;
+  protected def list[T<:Type](t:Property[this.type,T]):Property[this.type,T] =ListProp(t);
+  
+  protected def propOf[T](t:Class[T]):Property[this.type,_<:BuiltInType[T]]  = new Prop(this, BuiltInType(t));
+  
   protected def packageName:String=getClass.getPackage.getName;
   
   val NOTHING=new Prop(this,NothingType){ override def  name()="NOTHING"};
@@ -173,6 +180,8 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
     MapsTo(this,c);
     MapsTo(c,this);
   }
+  
+  
   
   private[core] class MetaInf {
     val fToPropMap: HashMap[Field,UnknownProperty] = HashMap();

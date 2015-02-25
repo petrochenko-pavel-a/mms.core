@@ -10,7 +10,9 @@ import org.mms.core.runtime.ICollectionProperty
 import org.mms.core.runtime.ICollectionProperty
 import org.mms.core.codemodel.SourceMember
 import org.mms.core.codemodel.SourceMember
-import org.mms.core.runtime.RuntimeImplicits._;
+import org.mms.core.runtime.RuntimeImplicits._
+import java.util.IdentityHashMap
+import java.util.HashMap
 trait Tranformation[F, T] extends Function2[F, T, Unit] {
 
 }
@@ -59,14 +61,60 @@ class TransformerRegistry {
     }
    
     def apply(v1: A): B = {
+      val ctx=CalculatedTransform.enter();
+      try{
+      val alreadyTransformed=ctx.get(v1,b);
+      if (alreadyTransformed!=null){
+        return b.cast(alreadyTransformed);
+      }
       val r = b.newInstance();
+      ctx.record(v1,r,b);
       tr.apply(a.cast(v1), r);
       return r;
+      }finally{
+        CalculatedTransform.exit();
+      }
     }
 
     def supports(): (Class[_], Class[_]) = (a, b);
   }
+ //TODO better equals
+ case class ObjectTargetClass(identityCode:Int,targetClass:Class[_],v:Any);
 
+ class TransformContext{
+   val transformedMap=new HashMap[Any,Any]();
+   var level:Int=0;
+   
+   def record(s:Any,t:Any,tc:Class[_])={
+      transformedMap.put(ObjectTargetClass(System.identityHashCode(s),tc,s), t);
+   }
+   
+   def get(s:Any,tr:Class[_]):Any=transformedMap.get(ObjectTargetClass(System.identityHashCode(s),tr,s));
+ }
+ 
+ object CalculatedTransform{
+     val context=new ThreadLocal[TransformContext]();
+     
+     
+     
+     private def enter():TransformContext={
+       var c=context.get();
+       if (c==null){
+         c=new TransformContext();
+         context.set(c);
+       }
+       c.level=c.level+1;
+       return c;
+     }
+     private def exit(){
+       var c=context.get();
+       c.level=c.level-1;
+       if (c.level==0){
+         context.set(null);
+       }
+     }
+ }
+ 
 object Transformers {
 
   val registry = new TransformerRegistry
@@ -90,6 +138,7 @@ object Transformers {
 
     return f(v);
   }
+  
   def transformer[F, T <: Any](ft: Class[F], rt: Class[T]): TranformationFunction[F,T] = {
     
     val t = registry.transformer(ft, rt);
@@ -204,7 +253,6 @@ case class DescriminatedTransform[F,T](val targetClass:Class[_],val descriminato
         return targetClass.cast(z).asInstanceOf[T];
       }
     }
-    println("Apply:"+v);
     return null.asInstanceOf[T];
   }
 }

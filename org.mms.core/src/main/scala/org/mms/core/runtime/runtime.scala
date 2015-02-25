@@ -15,9 +15,64 @@ trait IRuntimeProperty[D, R] {
       setter()(d, r);
     }
     else{
+      val kv=meta.about(classOf[KnowsWayToModify]);
+      for (q<-kv){
+        val options=q.howToChange(meta);
+        if (options!=null){
+          for (option<-options){
+            if (tryExecute(option,r)){
+              return;
+            }
+          }
+        }
+      }
       println("attempt to modify readonly property:"+meta.name()+" of "+meta.domain())
     }
   };
+  
+  private def determineProp(p:PropertyModel):Tuple2[PropertyModel,PropertyModel]={
+    var x=p;
+    while (x.isInstanceOf[DelegateProp[_<:Type,_<:Type]]){
+      x=x.asInstanceOf[DelegateProp[_<:Type,_<:Type]].p;
+    }
+    if (x.isInstanceOf[SubProp[_<:Type,_<:Type]]){
+      val sp=x.asInstanceOf[SubProp[_<:Type,_<:Type]];
+      val cand=sp.childProperty();
+      return (cand,sp.parent);  
+    }
+    return null;
+  }
+  private def tryExecute(w:WayToChange,r:R):Boolean={
+    for (op<-w.ops){
+        op match {
+          case Remove(p,v) =>{
+            val c=determineProp(p);
+            if (c!=null){
+               if (v==OldValue){
+                 val base=r;
+                 executeRemove()                 
+               } 
+            }
+          }
+          case Add(p,v) =>{
+            
+          }
+          case SetValue(p,v) =>{
+            
+          }
+        }
+        println(op)
+    }
+    return false;  
+  }
+  
+  private def executeRemove( base:Any,value:Any,p:PropertyModel):Unit={
+    
+  }
+  private def executeAdd(base:Any,value:Any,p:PropertyModel):Unit={
+    
+  }
+  
   def readOnly = setter == null;
 }
 trait ICollectionProperty[D, Col, Elem] extends IRuntimeProperty[D, Col] {
@@ -42,15 +97,45 @@ case class ReflectionSetter[D](val method: Method) extends Function2[D, Object, 
     method.invoke(o, v)
   };
 }
-
-case class ModelledRuntimeProperty[D, R](model: PropertyModel) extends IRuntimeProperty[D, R] {
+case class SubPropertyOnRuntime[D,R>:Null,A](val p:IRuntimeProperty[D,A],s:IRuntimeProperty[A,R],meta:PropertyModel) extends IRuntimeProperty[D,R]{
+  
+   def getter(): Function1[D, R]=new Function1[D,R]{
+     
+     def apply(a:D):R={
+       val x=p.get(a);
+       if (x==null){
+         return null;
+       }
+       return s.get(x);
+     }
+   };
+   def setter(): Function2[D, R, Unit]=new Function2[D,R,Unit](){
+      def apply(a:D,v:R):Unit={
+        var x=p.get(a);
+        
+        if (x==null){
+           //FIXME
+           x=p.range().newInstance();
+           p.set(a, x);           
+        }
+        s.set(x, v);
+      }
+   }
+   def range()=s.range();  
+}
+case class ModelledRuntimeProperty[D, R>:Null](model: PropertyModel) extends IRuntimeProperty[D, R] {
   import RuntimeImplicits._;
 
-  val actual: RuntimeProperty[D, R] = 
+  val actual: IRuntimeProperty[D, R] = 
   {
     if (model.isInstanceOf[SubProp[_,_]]){
+      
       val x=RuntimeProperty(model.domain, model.name()).asInstanceOf[RuntimeProperty[D, R]];
-      null;
+      val parent=ModelledRuntimeProperty(model.asInstanceOf[SubProp[_,_]].parent);
+      
+      val x1=x.asInstanceOf[IRuntimeProperty[Any,R]];
+      val p1=parent.asInstanceOf[IRuntimeProperty[D,Any]];
+      SubPropertyOnRuntime[D,R,Any](p1,x1,model);
     }
     else{
      RuntimeProperty(model.domain, model.name()).asInstanceOf[RuntimeProperty[D, R]];
@@ -59,9 +144,9 @@ case class ModelledRuntimeProperty[D, R](model: PropertyModel) extends IRuntimeP
 
   def meta(): PropertyModel = model;
 
-  def getter(): Function1[D, R] = actual.getter;
+  def getter(): Function1[D, R] = actual.getter.asInstanceOf[Function1[D, R] ];
 
-  def setter(): Function2[D, R, Unit] = actual.setter;
+  def setter(): Function2[D, R, Unit] = actual.setter.asInstanceOf[Function2[D, R, Unit]];
 
   def range(): Class[R] = {
     val v: Class[_] = model.range();

@@ -18,8 +18,6 @@ protected[core] object StackDetails{
  */
 trait Property[DomainType<:Type,RangeType<:Type] extends Entity[Property[DomainType,RangeType]]{
    
-   
-   
    def $():RangeType ={
      val r=range().getClass;
      val constructor=range.getClass.getDeclaredConstructor();
@@ -85,11 +83,12 @@ object Predicate{
   object FALSE extends Predicate{}
 }
 
-private abstract class ObjectDefinedProp[D<:ModelType[_],R<:Type](val domain:D,private var nameOverride:String=null)extends Property[D,R]{
+private abstract class ObjectDefinedProp[D<:ModelType[_],R<:Type](val domain:D,protected var nameOverride:String=null)extends Property[D,R]{
   
   override def withName(name:String):Property[D,R]={
     nameOverride=name;return this;
   }
+  protected[core] var delegatesTo:ObjectDefinedProp[D,R]=_;
   
   def field():Field={
     val z:HashMap[ObjectDefinedProp[D,R],Field]=domain.metainf.pToFieldMap.asInstanceOf[HashMap[ObjectDefinedProp[D,R],Field]];
@@ -105,6 +104,9 @@ private abstract class ObjectDefinedProp[D<:ModelType[_],R<:Type](val domain:D,p
      }
      val f=field;
      if (f==null){
+       if(delegatesTo!=null){
+         return delegatesTo.name();
+       }
        return "<unbinded prop>";
      }
      return field.getName;
@@ -124,15 +126,33 @@ private[core] class SubProp[D<:ModelType[_],R<:Type](override val domain:D,overr
     }
     return parent;
   }
+  
+  def childProperty():Property[D,R]={
+    for (x<-domain.properties()){
+      if (x.name()==this.name()){
+        return x.asInstanceOf[Property[D,R]];
+      }
+    }
+    return null;
+  }
 }
 
 private[core] abstract class DelegateProp[D<:ModelType[_],R<:Type](val p:Property[D,R])extends ObjectDefinedProp[D,R](p.domain()){
   remove(p);
   def range():R=p.range;
+ override def domainString():String=p.domainString()
+  if (p.isInstanceOf[ObjectDefinedProp[D,R]]){    
+    p.asInstanceOf[ObjectDefinedProp[D,R]].delegatesTo=this;
+  }
+  
+  override def withName(name:String):Property[D,R]={
+    super.withName(name);
+    //p.withName(name);
+  }
+  
 }
 
 private[core] case class ListProp[D<:ModelType[_],R<:Type](override val p:Property[D,R])extends DelegateProp[D,R](p){
   override def typeDescr()=":list("+range()+")";
-  
 }
 private[core] case class KeyProp[D<:ModelType[_],R<:Type](override val p:Property[D,R])extends DelegateProp[D,R](p){}

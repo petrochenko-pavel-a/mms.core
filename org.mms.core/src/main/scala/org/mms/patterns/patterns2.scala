@@ -52,3 +52,8 @@ object CollectionDescription extends APIPattern{
 object SecondaryCollection extends APIPattern(CollectionDescription){
   val parentCollection=propOf(CollectionDescription);
 }
+
+object API extends APIPattern{
+  val primaryCollections=listOf(CollectionDescription)
+  val topLevelActions=listOf(ResourceAction)
+}
