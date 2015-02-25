@@ -21,8 +21,8 @@ case class ParentChildAssertion[P <: Type, C <: Type](val sp: Property[_<:Type, 
     if (prop==sp){
       return List(
           WayToChange(
-               Remove(tp,OldValue),
-               Add(tp,NewValue)
+               Remove(tp,OldValue,ThisValue),
+               Add(tp,NewValue,ThisValue)
           ));
     }
     if (prop==tp){

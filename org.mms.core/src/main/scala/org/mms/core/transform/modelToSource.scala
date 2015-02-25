@@ -17,6 +17,7 @@ import org.mms.core.codemodel.IMember
 import org.mms.core.codemodel.IType
 import javax.lang.model.element.PackageElement
 import org.mms.core.codemodel.Package
+import org.mms.core.ParentChildAssertion
 
 /**
  * code model related models
@@ -26,7 +27,7 @@ object ITypeModel extends AbstractType {
 }
 
 object CodeModelModel extends ModelType {
-  val name = str;
+  val name = key(str);
   val children = list(propOf(PackageElementModel));
 }
 
@@ -35,7 +36,7 @@ object PackageElementModel extends ModelType() {
   val parent = required(propOf(CodeModelModel));
   val children = list(propOf(SourceTypeModel));
   
-  
+  ParentChildAssertion(parent,parent.$.children);//more convinient way is to mark prop with parent
 }
 
 object SourceTypeModel extends ModelType(ITypeModel) {
@@ -45,10 +46,17 @@ object SourceTypeModel extends ModelType(ITypeModel) {
   
   val parent = required(propOf(PackageElementModel))
   
-  ParentChildAssertion(parent,parent.$.children);
+  ParentChildAssertion(parent,parent.$.children);//more convinient way is to mark prop with parent
   
   //listof
 }
+/**
+ * when constructing target property value
+ * and initializing tree parent check if it can be replaced with existing one
+ *   parent can be be replaced with existing one if its global key equals with current one global key
+ * 
+ *
+ */
 
 
 
@@ -112,9 +120,6 @@ object TargetTest1 extends App {
 }
 
 object TestApp extends App {
-  
-  
-  
   Mappings.learn();
   var v: IModelElement[_] = Transformers.transformer(classOf[ModelType[_]], classOf[SourceType])(SourceTypeModel);
   println(v);

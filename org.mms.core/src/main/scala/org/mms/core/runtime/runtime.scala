@@ -1,8 +1,9 @@
 package org.mms.core.runtime;
 
 import org.mms.core.Property
-import org.mms.core._;
+import org.mms.core._
 import java.lang.reflect.Method
+import scala.collection.TraversableLike
 
 trait IRuntimeProperty[D, R] {
   def meta(): PropertyModel;
@@ -10,6 +11,31 @@ trait IRuntimeProperty[D, R] {
   def setter(): Function2[D, R, Unit];
   def range(): Class[R]
   def get(d: D): R = { getter()(d) };
+  
+  def remove(b:D,v:R):Boolean={
+    if (!readOnly){
+      val vq=get(b);
+      if (vq.isInstanceOf[TraversableLike[_,_]]){
+        val z=vq.asInstanceOf[TraversableLike[_,_]];
+        val newValue=z.filter { x => x!=v };
+        set(b, newValue.asInstanceOf[R]);
+      }
+      return true;
+    }
+    return false;
+  }
+  def add(b:D,v:R):Boolean={
+    if (!readOnly){
+      val vq=get(b);
+      if (vq.isInstanceOf[List[_]]){
+        val z=vq.asInstanceOf[List[_]];
+        val newValue=z.::(v);
+        set(b, newValue.asInstanceOf[R]);
+      }
+      return true;
+    }
+    return false;
+  }
   def set(d: D, r: R) {
     if (!readOnly) {
       setter()(d, r);
@@ -20,7 +46,7 @@ trait IRuntimeProperty[D, R] {
         val options=q.howToChange(meta);
         if (options!=null){
           for (option<-options){
-            if (tryExecute(option,r)){
+            if (tryExecute(option,d,r,get(d))){
               return;
             }
           }
@@ -42,35 +68,60 @@ trait IRuntimeProperty[D, R] {
     }
     return null;
   }
-  private def tryExecute(w:WayToChange,r:R):Boolean={
+  private def getActualValue(v:ValueModel,base:D,newValue:R,oldValue:R ):Any={
+    v match {
+      case ThisValue =>base; 
+      case OldValue =>oldValue;
+      case NewValue =>newValue;
+    }    
+  }
+  
+  private def tryExecute(w:WayToChange,base:D,newValue:R,oldValue:R):Boolean={
+    //TODO EXPAND IT
     for (op<-w.ops){
         op match {
-          case Remove(p,v) =>{
+          case Remove(p,b,v) =>{
             val c=determineProp(p);
             if (c!=null){
-               if (v==OldValue){
-                 val base=r;
-                 executeRemove()                 
-               } 
+             var baseValue=getActualValue(b, base, newValue, oldValue) ;
+             var vValue=getActualValue(v, base, newValue, oldValue) ;
+             if (!executeRemove(baseValue, vValue, c._1)){
+               return false;
+             }
             }
           }
-          case Add(p,v) =>{
-            
+          case Add(p,b,v) =>{
+            val c=determineProp(p);
+            if (c!=null){
+             var baseValue=getActualValue(b, base, newValue, oldValue) ;
+             var vValue=getActualValue(v, base, newValue, oldValue) ;
+             if (!executeAdd(baseValue, vValue, c._1)){
+               return false;
+             }
+            }
           }
           case SetValue(p,v) =>{
             
           }
         }
-        println(op)
+        
     }
-    return false;  
+    return true;  
   }
   
-  private def executeRemove( base:Any,value:Any,p:PropertyModel):Unit={
-    
+  private def executeRemove( base:Any,value:Any,p:PropertyModel):Boolean={
+    if(base!=null){
+      val runtimeModel:IRuntimeProperty[Any,Any]=RuntimeImplicits.propToRuntime(p).asInstanceOf[IRuntimeProperty[Any,Any]];
+      return runtimeModel.remove(base,value);  
+    }   
+    return true;
   }
-  private def executeAdd(base:Any,value:Any,p:PropertyModel):Unit={
-    
+  private def executeAdd(base:Any,value:Any,p:PropertyModel):Boolean={
+    if(base!=null){
+      val runtimeModel:IRuntimeProperty[Any,Any]=RuntimeImplicits.propToRuntime(p).asInstanceOf[IRuntimeProperty[Any,Any]];
+      return runtimeModel.add(base,value);        
+    }
+    return true;
   }
   
   def readOnly = setter == null;
@@ -241,4 +292,13 @@ class CollectionProperty[D, Col, Elem](val meta: PropertyModel, val getter: Func
   extends ICollectionProperty[D, Col, Elem] {
   def range() = mRange;
   def elementType() = mElem;
+}
+
+object KeyUtils{
+  
+  
+  
+  def globalKey(obj:Any,clazz:ModelType[_]):Any={
+    
+  }
 }
