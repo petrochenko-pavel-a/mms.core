@@ -28,6 +28,9 @@ trait IRuntimeProperty[D, R] {
     if (!readOnly) {
       val vq = get(b);
       if (vq.isInstanceOf[List[_]]) {
+        if (v==null){
+          return true;
+        }
         val z = vq.asInstanceOf[List[_]];
         val newValue = z.::(v);
         set(b, newValue.asInstanceOf[R]);
@@ -231,7 +234,9 @@ object RuntimeImplicits {
   }
   implicit def classToType(c: Class[_]): Type = {
     //I wish ModelType would be a case class
-    return BuiltInType(c);
+    var z=BuiltInType(c);
+    val x=z.toModelIfPossible();
+    return x;
   }
 }
 
@@ -309,7 +314,7 @@ object KeyUtils {
 
   
   def getValue(pm: PropertyModel, b: Any): Any = {
-    if (pm == null) {
+    if (pm == null||b==null) {
       return null;
     }
     val pr: IRuntimeProperty[Any, Any] = RuntimeImplicits.propToRuntime(pm).asInstanceOf[IRuntimeProperty[Any, Any]];

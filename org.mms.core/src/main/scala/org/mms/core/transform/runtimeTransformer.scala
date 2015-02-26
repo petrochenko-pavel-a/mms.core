@@ -13,6 +13,7 @@ import org.mms.core.codemodel.SourceMember
 import org.mms.core.runtime.RuntimeImplicits._
 import java.util.IdentityHashMap
 import java.util.HashMap
+import org.mms.core.runtime.RuntimeImplicits
 trait Tranformation[F, T] extends Function2[F, T, Unit] {
 
 }
@@ -94,6 +95,7 @@ class TransformerRegistry {
    def exchangeKey(k:Any,vl:Any):Any={
      val z=keyMap.get(k);
      if (z!=null){
+       deconstruct(vl);
        return z;
      }
      keyMap.put(k, vl);
@@ -101,6 +103,27 @@ class TransformerRegistry {
    }
    
    def get(s:Any,tr:Class[_]):Any=transformedMap.get(ObjectTargetClass(System.identityHashCode(s),tr,s));
+
+   def deconstruct(vl: Any) = {
+     if (vl!=null){
+       val tp=RuntimeImplicits.classToType(vl.getClass());
+       for (p<-tp.properties()){
+         if (needsDeconstruct(p)){
+           val pr:IRuntimeProperty[Any,Any]=RuntimeImplicits.propToRuntime(p).asInstanceOf[IRuntimeProperty[Any,Any]];
+           pr.set(vl, null);         
+         }
+       }
+     }
+     //to this moment vl is fully constructed object no we should deconstruct it;
+    
+   }
+
+   def needsDeconstruct(p: PropertyModel):Boolean = {
+     if (!p.about(classOf[NeedsDeconstruct]).isEmpty){
+       return true;
+     }
+     return false;
+   }
  }
  
  object CalculatedTransform{
@@ -218,6 +241,10 @@ case class OneToOnePropertyTransform[D, D1, SR, TR](val sP: IRuntimeProperty[D, 
 }
 
 case class ObjectInitTransform[D, D1, SR, TR](val tP: IRuntimeProperty[D, SR],initFunction:Tranformation[D,TR]) extends Tranformation[D, D1] {
+  
+  if (tP==null||tP.range()==null){
+    throw new IllegalArgumentException();
+  }
   def apply(v1: D, v2: D1): Unit = {
     val to=tP.range().newInstance();
     initFunction.apply(v1,to.asInstanceOf[TR]);

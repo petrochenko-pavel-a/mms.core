@@ -18,6 +18,7 @@ import org.mms.core.codemodel.IType
 import javax.lang.model.element.PackageElement
 import org.mms.core.codemodel.Package
 import org.mms.core.ParentChildAssertion
+import org.mms.core.codemodel.CodeModel
 
 /**
  * code model related models
@@ -35,7 +36,6 @@ object PackageElementModel extends ModelType() {
   val name = key(str);
   val parent = required(propOf(CodeModelModel));
   val children = list(propOf(SourceTypeModel));
-  
   ParentChildAssertion(parent,parent.$.children);//more convinient way is to mark prop with parent
 }
 
@@ -95,7 +95,8 @@ object Mappings extends AssertionContainer {
   def typeMappings() {
     ITypeModel <=> classOf[IType];
     SourceTypeModel <=> classOf[SourceType];
-    PackageElementModel<=>classOf[Package]
+    PackageElementModel<=>classOf[Package];
+    CodeModelModel<=>classOf[CodeModel];
     SourceMemberModel <=> classOf[SourceMember]; //We should be able to build transform proto without mapping
     TypeModel <=> classOf[Type]
     PropertyModelModel <=> classOf[Property[_, _]] //We should check compatibility when stating it

@@ -15,14 +15,18 @@ case class TransformsOneToOne[D1 <: Type, D2 <: Type, R1 <: Type, R2 <: Type](va
   register(sp, this);
   register(tp, this);
 }
-
+trait NeedsDeconstruct extends FactAnnotation
 
 case class ParentChildAssertion[P <: Type, C <: Type](val sp: Property[_<:Type, C], val tp: Property[C, P]) 
-  extends TwoWayAssertion with KnowsWayToModify{
+  extends TwoWayAssertion with KnowsWayToModify with NeedsDeconstruct{
   register(sp, new ModifyInterceptor(sp){
      override def beforeModify(pr:IRuntimeProperty[_,_],base:Any,value:Any):Any={
+       if (value==null){
+         return value;
+       }
        val ctx=CalculatedTransform.getContext();
-       val key=KeyUtils.globalKey(value, pr.meta().range(),sp);
+       val tp=pr.meta().range();
+       val key=KeyUtils.globalKey(value,tp ,sp);
        return ctx.exchangeKey(key,value);
      }
     

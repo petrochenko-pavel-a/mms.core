@@ -209,6 +209,19 @@ class SubPropertyInitializer(val up:PropertyModel,val trs:List[CanProduceTransfo
   }
 }
 
+case class InitDefault(val up:PropertyModel) extends CanProduceTransformation {
+  
+  def toTransformation(): Tranformation[_, _] = {
+    //TODO choose correct type
+    val v0:IRuntimeProperty[Any,Any]=RuntimeImplicits.propToRuntime(up).asInstanceOf[IRuntimeProperty[Any,Any]];
+    val c=new CompositeTransformation(List(),up.domain()).toTransformation();
+    val v1:Tranformation[Any,Any]=c.asInstanceOf[Tranformation[Any,Any]];
+    return new ObjectInitTransform(v0,v1);
+  }
+  
+  def targetProps():Seq[PropertyModel]=List(up);
+}
+
 /**
  * builds mapping from exactly one type to another!!!
  */
@@ -243,16 +256,13 @@ case class TransformBuilder(from: Type, to: Type) extends CanBuildTransform {
     }
     //no we should group sub property initialization together;
     val allTransforms= transforms.values.toSeq;
-    var reified=upLift(allTransforms);
-    var affectedProps=Set[PropertyModel]();
-    for (x<-reified){
-      affectedProps=affectedProps.++(x.targetProps());
-    }
-    var unaffectedProps=tProps--affectedProps;
+    var reified=upLift(allTransforms,tProps);
+    
     return new CompositeTransformation(reified,to);
   }
+  
 
-  def upLift(allTransforms: Seq[org.mms.core.transform.CanProduceTransformation]):List[org.mms.core.transform.CanProduceTransformation] = {
+  def upLift(allTransforms: Seq[org.mms.core.transform.CanProduceTransformation],tProps: Set[PropertyModel]):List[org.mms.core.transform.CanProduceTransformation] = {
     val mappings=allTransforms.groupBy{rootProp};
     var reified=List[CanProduceTransformation]();
     
@@ -275,11 +285,21 @@ case class TransformBuilder(from: Type, to: Type) extends CanBuildTransform {
             throw new IllegalStateException;
           }
         }
-        reified=reified.::(new SubPropertyInitializer(v._1,upLift(upLifted)));
+        val tProps: Set[PropertyModel] = v._1.range().properties();
+        reified=reified.::(new SubPropertyInitializer(v._1,upLift(upLifted,tProps)));
         //this is sub property grouping;
       }
     }
-    
+    var affectedProps=Set[PropertyModel]();
+    for (x<-reified){
+      affectedProps=affectedProps.++(x.targetProps());
+    }
+    var unaffectedProps=tProps--affectedProps;
+    for (p<-unaffectedProps){
+      if (p.isRequired){
+         reified=reified.::(InitDefault(p)); 
+      }
+    }
     reified
   }
   def rootProp(x:CanProduceTransformation):PropertyModel={
