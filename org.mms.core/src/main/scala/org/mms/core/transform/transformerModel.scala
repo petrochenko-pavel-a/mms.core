@@ -32,11 +32,13 @@ trait TransformationPrototype {
 trait CanProduceTransformation {
 
   def toTransformation(): Tranformation[_, _];
+  
+  def targetProps():Seq[PropertyModel];
 }
 
 case class OneToOne(val first: PropertyModel, another: PropertyModel, val tfunction: TransformationPrototype = null) extends CanProduceTransformation {
   
-  
+  def targetProps():Seq[PropertyModel]=List(another);
   
   def toTransformation(): Tranformation[_, _] =
     {
@@ -63,6 +65,8 @@ case class UnversalTransform(val q: TransformationPrototype,f: Type, t: Type) ex
 }
 
 object NilPrototype extends TransformationPrototype with CanProduceTransformation {
+  
+  def targetProps():Seq[PropertyModel]=throw new UnsupportedOperationException;
   def toTransform(f: Type, t: Type): TranformationFunction[_, _] = {
     val z=TransformationModelRegistry.get(f, t);
     if (z==this){
@@ -194,6 +198,8 @@ case class MultiTypeTransform(from: Type, to: Type) extends CanBuildTransform {
 
 class SubPropertyInitializer(val up:PropertyModel,val trs:List[CanProduceTransformation]) extends CanProduceTransformation {
   
+  def targetProps():Seq[PropertyModel]=List(up);
+  
   def toTransformation(): Tranformation[_, _] = {
     //TODO choose correct type
     val v0:IRuntimeProperty[Any,Any]=RuntimeImplicits.propToRuntime(up).asInstanceOf[IRuntimeProperty[Any,Any]];
@@ -238,12 +244,18 @@ case class TransformBuilder(from: Type, to: Type) extends CanBuildTransform {
     //no we should group sub property initialization together;
     val allTransforms= transforms.values.toSeq;
     var reified=upLift(allTransforms);
+    var affectedProps=Set[PropertyModel]();
+    for (x<-reified){
+      affectedProps=affectedProps.++(x.targetProps());
+    }
+    var unaffectedProps=tProps--affectedProps;
     return new CompositeTransformation(reified,to);
   }
 
   def upLift(allTransforms: Seq[org.mms.core.transform.CanProduceTransformation]):List[org.mms.core.transform.CanProduceTransformation] = {
     val mappings=allTransforms.groupBy{rootProp};
     var reified=List[CanProduceTransformation]();
+    
     for (v<-mappings){
       if (v._1==null){
         reified=reified.:::(v._2.toList);
@@ -267,6 +279,7 @@ case class TransformBuilder(from: Type, to: Type) extends CanBuildTransform {
         //this is sub property grouping;
       }
     }
+    
     reified
   }
   def rootProp(x:CanProduceTransformation):PropertyModel={

@@ -14,4 +14,10 @@ object BOXAapi extends API("Box")(
      ),
      readOnlyCollection("/trash/items")
   )
+  ,
+  collection("files", "Files collection(can not list)")(
+     item("{id}")(
+         
+     )       
+  )
 )

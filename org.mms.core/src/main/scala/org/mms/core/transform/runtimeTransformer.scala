@@ -83,10 +83,21 @@ class TransformerRegistry {
 
  class TransformContext{
    val transformedMap=new HashMap[Any,Any]();
+   
+   val keyMap=new HashMap[Any,Any]();
    var level:Int=0;
    
    def record(s:Any,t:Any,tc:Class[_])={
       transformedMap.put(ObjectTargetClass(System.identityHashCode(s),tc,s), t);
+   }
+   
+   def exchangeKey(k:Any,vl:Any):Any={
+     val z=keyMap.get(k);
+     if (z!=null){
+       return z;
+     }
+     keyMap.put(k, vl);
+     return vl;  
    }
    
    def get(s:Any,tr:Class[_]):Any=transformedMap.get(ObjectTargetClass(System.identityHashCode(s),tr,s));
@@ -95,7 +106,7 @@ class TransformerRegistry {
  object CalculatedTransform{
      val context=new ThreadLocal[TransformContext]();
      
-     
+     def getContext()=context.get();
      
      private def enter():TransformContext={
        var c=context.get();
