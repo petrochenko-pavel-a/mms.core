@@ -1,5 +1,8 @@
 package org.mms.core;
 
+import org.mms.core.runtime.ModifyInterceptor
+import org.mms.core.runtime.IRuntimeProperty
+
 /**
  * marker interface for two way transformation
  */
@@ -15,8 +18,7 @@ case class TransformsOneToOne[D1 <: Type, D2 <: Type, R1 <: Type, R2 <: Type](va
 case class ParentChildAssertion[P <: Type, C <: Type](val sp: Property[_<:Type, C], val tp: Property[C, P]) 
   extends TwoWayAssertion with KnowsWayToModify{
   register(sp, this);
-  register(tp, this);
-  
+  register(tp, this);  
   def howToChange(prop:PropertyModel):Seq[WayToChange]={
     if (prop==sp){
       return List(

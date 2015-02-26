@@ -36,7 +36,12 @@ trait IRuntimeProperty[D, R] {
     }
     return false;
   }
-  def set(d: D, r: R) {
+  def set(d: D, r1: R) {
+    var r=r1;
+    val interceptors=meta().about(classOf[ModifyInterceptor]);
+    for (i<-interceptors){
+      r=i.beforeModify(this, d, r1).asInstanceOf[R];
+    }
     if (!readOnly) {
       setter()(d, r);
     }
@@ -296,9 +301,41 @@ class CollectionProperty[D, Col, Elem](val meta: PropertyModel, val getter: Func
 
 object KeyUtils{
   
+  def getKeyProperty(clazz:Type):PropertyModel={
+   val v=clazz.properties().find { x => x.isKey };
+   if (v.isDefined){
+     return v.get;
+   }
+   return null;
+  }
   
+  def getParentProperty(clazz:Type):PropertyModel={
+   val v=clazz.properties().find { x => x.isKey };
+   if (v.isDefined){
+     return v.get;
+   }
+   return null;
+  }
   
   def globalKey(obj:Any,clazz:ModelType[_]):Any={
-    
+    val ls=getKeyProperty(clazz);
+    if  (ls==null){
+      return null;
+    }
+    val pr:IRuntimeProperty[Any,Any]=RuntimeImplicits.propToRuntime(ls).asInstanceOf[IRuntimeProperty[Any,Any]];
+    val kv=pr.get(obj);
+    if (kv!=null){
+       
+      return kv;
+    }
+    return null;
   }
 }
+
+class ModifyInterceptor(val pm:PropertyModel)extends FactAnnotation{
+  
+  def beforeModify(pr:IRuntimeProperty[_,_],base:Any,value:Any):Any=value;
+  def afterModify(pr:IRuntimeProperty[_,_],base:Any,value:Any):Unit={};
+}
+
+ 

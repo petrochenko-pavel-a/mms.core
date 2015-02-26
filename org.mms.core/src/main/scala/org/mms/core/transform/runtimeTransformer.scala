@@ -205,6 +205,15 @@ case class OneToOnePropertyTransform[D, D1, SR, TR](val sP: IRuntimeProperty[D, 
     tP.set(v2, tr);
   }
 }
+
+case class ObjectInitTransform[D, D1, SR, TR](val tP: IRuntimeProperty[D, SR],initFunction:Tranformation[D,TR]) extends Tranformation[D, D1] {
+  def apply(v1: D, v2: D1): Unit = {
+    val to=tP.range().newInstance();
+    initFunction.apply(v1,to.asInstanceOf[TR]);
+    tP.set(v2.asInstanceOf[D],to);
+    
+  }
+}
 case class RuntimeCondition(){
   def satisfy(v:Any):Boolean=true;
   
@@ -214,8 +223,7 @@ case class ConditionedAssertion[F,T](val condition:RuntimeCondition, val transfo
   {
     if (condition==null||transformer==null){
       throw new IllegalStateException("Should never be null")
-    }
-    
+    }    
   }
   
   def transform(value:Any):T={

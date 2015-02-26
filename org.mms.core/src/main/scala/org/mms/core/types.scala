@@ -81,6 +81,8 @@ trait Type extends Entity[Type] {
   def properties():Set[PropertyModel]={
     return pMap().values.toSet;
   } 
+  
+  def property(name:String):PropertyModel=pMap()(name);
 
   
 }
@@ -159,9 +161,9 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
     v;
   }
   protected def listOf[T<:Type](t:T):Property[this.type,T] =list(propOf(t));
-  protected def key[T<:Type](t:Property[this.type,T]):Property[this.type,T] =t;
-  protected def optional[T<:Type](t:Property[this.type,T]):Property[this.type,T] =t;
-  protected def required[T<:Type](t:Property[this.type,T]):Property[this.type,T] =t;
+  protected def key[T<:Type](t:Property[this.type,T]):Property[this.type,T] ={t._key=true;t;}//TODO think is this good or not
+  protected def optional[T<:Type](t:Property[this.type,T]):Property[this.type,T] ={t._required=false;t;};
+  protected def required[T<:Type](t:Property[this.type,T]):Property[this.type,T] ={t._required=true;t;}
   protected def list[T<:Type](t:Property[this.type,T]):Property[this.type,T] =ListProp(t);
   
   protected def propOf[T](t:Class[T]):Property[this.type,_<:BuiltInType[T]]  = new Prop(this, BuiltInType(t));
@@ -204,6 +206,12 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
   }
   protected[core] lazy val metainf = new MetaInf;
   def declaredProperties():List[Property[ModelType[_],_<:Type]]=metainf.fToPropMap.values.toList;
+  
+  //TODO REMOVE IT
+  protected[core] def getPropFromMetaInf(name:String):Property[this.type,_<:Type]={
+    val q=getClass().getDeclaredField(name);
+    return metainf.fToPropMap(q).asInstanceOf[Property[this.type,_<:Type]];
+  }
   
 }
 class AbstractType[T<:ModelType[_]](override val superType: Type = null,override val withInterfaces:withTrait=withTrait()) extends ModelType[T](superType,withInterfaces) {

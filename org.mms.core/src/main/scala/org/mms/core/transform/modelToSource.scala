@@ -77,6 +77,10 @@ object ModelTypeModel extends ModelType(TypeModel) {
   val props = list(propOf(PropertyModelModel)).withName("declaredProperties");
   val modelPackage = str.withName("packageName");
 }
+object Universe extends ModelType{
+  val children = listOf(ModelTypeModel);
+}
+
 object PropertyModelModel extends ModelType {
   val name = str;
   val range = propOf(classOf[Type]);
@@ -96,23 +100,24 @@ object Mappings extends AssertionContainer {
     TypeModel <=> classOf[Type]
     PropertyModelModel <=> classOf[Property[_, _]] //We should check compatibility when stating it
     ModelTypeModel <=> classOf[ModelType[_]];
-    ModelTypeModel <=> SourceTypeModel;
+    
     BuiltInTypeModel
   }
 
   //first init mappings to classes;
   def definitions() = {
     
-    import SourceTypeModel._;
+    ModelTypeModel <=> SourceTypeModel;
     //type to source type conversion
-    ModelTypeModel.props <=> children;
-    TypeModel.typeNameProp <=> name;
-    TypeModel.superTypeProp <=> superClass
-    ModelTypeModel.modelPackage <=> parent.$.name;
-    
+    ModelTypeModel.props <=> SourceTypeModel.children;
+    TypeModel.typeNameProp <=> SourceTypeModel.name;
+    TypeModel.superTypeProp <=> SourceTypeModel.superClass
+    SourceTypeModel.parent.$.name<=>ModelTypeModel.modelPackage;
     //Property to SourceMember conversion
     PropertyModelModel.name <=> SourceMemberModel.name;
-    PropertyModelModel.range <=> SourceMemberModel.elementsType;    
+    PropertyModelModel.range <=> SourceMemberModel.elementsType;
+    //Universe.children<=>CodeModelModel.children.$.children;//mind crash!!!
+    
   }
 }
 object TargetTest1 extends App {
@@ -121,6 +126,7 @@ object TargetTest1 extends App {
 
 object TestApp extends App {
   Mappings.learn();
+  
   var v: IModelElement[_] = Transformers.transformer(classOf[ModelType[_]], classOf[SourceType])(SourceTypeModel);
   println(v);
 }

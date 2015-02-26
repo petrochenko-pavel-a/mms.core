@@ -23,14 +23,18 @@ trait Property[DomainType<:Type,RangeType<:Type] extends Entity[Property[DomainT
      val constructor=range.getClass.getDeclaredConstructor();
      try{
      StackDetails.prop.set(this);
-     constructor.setAccessible(true);
+     constructor.setAccessible(true);//TODO Super classes and interfaces
      val result=constructor.newInstance();
      return result;
      }finally {
      StackDetails.prop.set(null);  
      }     
    };
-   
+
+   def isKey=_key;
+   def isRequired=_required;
+   protected[core] var _key=false;
+   protected[core] var _required=false;
    def range():RangeType
    def domain():DomainType
    def name():String;
@@ -126,6 +130,25 @@ private[core] class SubProp[D<:ModelType[_],R<:Type](override val domain:D,overr
     }
     return parent;
   }
+  override protected def init(){
+    
+  }
+  
+  def oneLevelUp():PropertyModel={
+    var q:Property[_,_]=parent;
+    if (parent.isInstanceOf[DelegateProp[_,_]]){
+       q= parent.asInstanceOf[DelegateProp[_,_]].undelegate();
+    }
+    if (q.isInstanceOf[SubProp[_,_]]){
+      val p= q.asInstanceOf[SubProp[_,_]].oneLevelUp();
+      val mm=p.$;
+      if (mm.isInstanceOf[ModelType[_]]){
+        return mm.asInstanceOf[ModelType[_]].getPropFromMetaInf(name);  
+      }
+      return mm.property(name());
+    }
+    return childProperty();
+  }
   
   def childProperty():Property[D,R]={
     for (x<-domain.properties()){
@@ -140,14 +163,20 @@ private[core] class SubProp[D<:ModelType[_],R<:Type](override val domain:D,overr
 private[core] abstract class DelegateProp[D<:ModelType[_],R<:Type](val p:Property[D,R])extends ObjectDefinedProp[D,R](p.domain()){
   remove(p);
   def range():R=p.range;
+  
+ def undelegate():Property[D,R]={
+    if (p.isInstanceOf[DelegateProp[D,R]]){
+     return p.asInstanceOf[DelegateProp[D,R]].undelegate();
+   }
+   return p;
+ } 
  override def domainString():String=p.domainString()
   if (p.isInstanceOf[ObjectDefinedProp[D,R]]){    
     p.asInstanceOf[ObjectDefinedProp[D,R]].delegatesTo=this;
   }
   
   override def withName(name:String):Property[D,R]={
-    super.withName(name);
-    //p.withName(name);
+    super.withName(name);    
   }
   
 }
