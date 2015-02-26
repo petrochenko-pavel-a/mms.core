@@ -19,6 +19,7 @@ case class API(name: String)(
 object PatternDescriptions {
 
   def list(res: String, m: HTTPMethod = null) = new collectionMember {};
+  def retrieve(res: String, m: HTTPMethod = null) = new collectionMember {};
   def action(res: String, m: HTTPMethod = null) = new collectionMember {};
   def update(res: String, m: HTTPMethod = null) = new collectionMember {};
   def delete(res: String, m: HTTPMethod = null) = new collectionMember {};

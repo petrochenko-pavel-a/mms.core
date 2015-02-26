@@ -54,6 +54,41 @@ object BOXAapi extends API("Box")(
       action("/folders/{folderId}",PUT)
     ),
     action("/me", GET)
+  ),
+  
+  collection("/tasks","Tasks")(
+    create("", POST),
+    item("/{taskId}")(
+      retrieve("", GET),
+      update("", PUT),
+      delete("", DELETE),      
+      secondaryCollection("/assignments", GET)()
+    )
+  ),
+  
+  collection("/task_assignments","Tasks")(
+    create("", POST),
+    item("/{taskAssignmentId}")(
+      retrieve("", GET),
+      update("", PUT),
+      delete("", DELETE)
+    )
+  ),
+  
+  simpleCollection("/groups","/{groupId}","Groups")(
+    item("/{groupId}")(
+      secondaryCollection("/memberships", GET)(),
+      secondaryCollection("/collaborations", GET)()
+    )
+  ),
+  
+  collection("/group_memberships","Group memberships")(
+    create("", POST),
+    item("/{groupMembershipId}")(
+      retrieve("", GET),
+      update("", PUT),
+      delete("", DELETE)
+    )
   )
   
   
