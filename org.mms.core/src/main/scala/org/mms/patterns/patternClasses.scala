@@ -32,9 +32,12 @@ object PatternDescriptions {
 
   def simpleCollection(url: String, memberUrl: String = "{id}", name: String = null)(items: collectionMember*): collectionMember with patternAPIMember = {
     collection(url, name) {
-      delete(memberUrl, DELETE)
-      update(memberUrl, PUT)
-      create(memberUrl, POST)
+      list(url,GET)
+      item(memberUrl, GET)(
+        delete(memberUrl, DELETE),
+        update(memberUrl, PUT)
+      )
+      create(url, POST)
     }
   }
 
