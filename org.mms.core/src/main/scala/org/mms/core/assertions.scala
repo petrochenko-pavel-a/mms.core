@@ -17,31 +17,33 @@ case class TransformsOneToOne[D1 <: Type, D2 <: Type, R1 <: Type, R2 <: Type](va
 }
 trait NeedsDeconstruct extends FactAnnotation
 
-case class ParentChildAssertion[P <: Type, C <: Type](val sp: Property[_<:Type, C], val tp: Property[C, P]) 
+case class ParentChildAssertion[P <: Type, C <: Type](val parent: Property[_<:Type, C], val child: Property[C, P]) 
   extends TwoWayAssertion with KnowsWayToModify with NeedsDeconstruct{
-  register(sp, new ModifyInterceptor(sp){
+  register(parent, new ModifyInterceptor(parent){
      override def beforeModify(pr:IRuntimeProperty[_,_],base:Any,value:Any):Any={
        if (value==null){
          return value;
        }
        val ctx=CalculatedTransform.getContext();
-       val tp=pr.meta().range();
-       val key=KeyUtils.globalKey(value,tp ,sp);
+       val child=pr.meta().range();
+       val key=KeyUtils.globalKey(value,child ,parent);
        return ctx.exchangeKey(key,value);
      }
     
   })
-  register(sp, this);
-  register(tp, this);  
+  register(parent, this);
+  register(child, this);
+  /*register(parent.rootProperty().withDecorators(), this);
+  register(child.rootProperty().withDecorators(), this);*/  
   def howToChange(prop:PropertyModel):Seq[WayToChange]={
-    if (prop==sp){
+    if (prop==parent){
       return List(
           WayToChange(
-               Remove(tp,OldValue,ThisValue),
-               Add(tp,NewValue,ThisValue)
+               Remove(child,OldValue,ThisValue),
+               Add(child,NewValue,ThisValue)
           ));
     }
-    if (prop==tp){
+    if (prop==child){
       //this is me
     }
     return null;

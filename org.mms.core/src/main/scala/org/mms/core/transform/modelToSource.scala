@@ -30,13 +30,14 @@ object ITypeModel extends AbstractType {
 object CodeModelModel extends ModelType {
   val name = key(str);
   val children = list(propOf(PackageElementModel));
+  
 }
 
 object PackageElementModel extends ModelType() {
   val name = key(str);
   val parent = required(propOf(CodeModelModel));
   val children = list(propOf(SourceTypeModel));
-  ParentChildAssertion(parent,parent.$.children);//more convinient way is to mark prop with parent
+  ParentChildAssertion(parent,CodeModelModel.children);//more convinient way is to mark prop with parent
 }
 
 object SourceTypeModel extends ModelType(ITypeModel) {
@@ -46,7 +47,7 @@ object SourceTypeModel extends ModelType(ITypeModel) {
   
   val parent = required(propOf(PackageElementModel))
   
-  ParentChildAssertion(parent,parent.$.children);//more convinient way is to mark prop with parent
+  ParentChildAssertion(parent,PackageElementModel.children);//more convinient way is to mark prop with parent
   
   //listof
 }
@@ -78,7 +79,7 @@ object ModelTypeModel extends ModelType(TypeModel) {
   val modelPackage = str.withName("packageName");
 }
 object Universe extends ModelType{
-  val children = listOf(ModelTypeModel);
+  val types = listOf(ModelTypeModel);
 }
 
 object PropertyModelModel extends ModelType {
@@ -101,7 +102,7 @@ object Mappings extends AssertionContainer {
     TypeModel <=> classOf[Type]
     PropertyModelModel <=> classOf[Property[_, _]] //We should check compatibility when stating it
     ModelTypeModel <=> classOf[ModelType[_]];
-    
+    Universe<=>classOf[TypeUniverse];
     BuiltInTypeModel
   }
 
@@ -117,7 +118,7 @@ object Mappings extends AssertionContainer {
     //Property to SourceMember conversion
     PropertyModelModel.name <=> SourceMemberModel.name;
     PropertyModelModel.range <=> SourceMemberModel.elementsType;
-    //Universe.children<=>CodeModelModel.children.$.children;//mind crash!!!
+    Universe.types<=>CodeModelModel.children.$.children;//mind crash!!!
     
   }
 }
@@ -128,6 +129,18 @@ object TargetTest1 extends App {
 object TestApp extends App {
   Mappings.learn();
   
+  val p1=SourceTypeModel.parent.$.children;
+  val p2=SourceTypeModel.parent.$.children;
+  println(p1==p2)
+ /* val x=CodeModelModel.children.$.children;
+  println(x);
   var v: IModelElement[_] = Transformers.transformer(classOf[ModelType[_]], classOf[SourceType])(SourceTypeModel);
   println(v);
+  
+  val u=new TypeUniverse();
+  u.add(SourceTypeModel);
+  u.add(SourceMemberModel);
+  
+  val cm=Transformers.transform(u, classOf[CodeModel]);
+  println(cm);*/
 }

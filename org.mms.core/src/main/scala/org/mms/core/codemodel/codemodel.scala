@@ -93,6 +93,9 @@ class ModelElement[C <: IModelElement[_]] extends IModelElement[C] {
   def children(): List[C] = mChildren;
 
   def children_=(c: List[C]) {
+    if (c==null){
+      return;
+    }
     if (!mChildren.isEmpty) {
       for (ch <- mChildren) {
         if (ch.isInstanceOf[ModelElement[C]]){
@@ -111,7 +114,14 @@ class ModelElement[C <: IModelElement[_]] extends IModelElement[C] {
     this.mChildren=c;
   }
 }
-class Package extends ModelElement[ISourceUnit] with IPackage;
+class Package extends ModelElement[ISourceUnit] with IPackage{
+  override def children_=(c: List[ISourceUnit]) ={
+    if (!c.isEmpty&&c(0).toString().equals("SourceTypeModel")){
+      println(c);
+    }
+    super.children_=(c);    
+  }
+}
 class SourceUnit extends ModelElement[ISourceType] with ISourceUnit;
 class SourceType extends ModelElement[IMember] with ISourceType {
 

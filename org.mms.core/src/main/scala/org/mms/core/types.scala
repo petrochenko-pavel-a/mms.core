@@ -116,7 +116,7 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
   def modelType():ModelType[_]=this;
   
   
-  
+  protected[core] var index=0;
   
   private var _abstract=false;
   {
@@ -156,7 +156,7 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
     
     var v=new Prop[this.type,T](this, t);
     if(StackDetails.prop.get!=null){
-      v=new SubProp[this.type,T](this, t,StackDetails.prop.get);      
+      v=new SubProp[this.type,T](this, t,v,StackDetails.prop.get);      
     }
     v;
   }
@@ -207,7 +207,7 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
   protected[core] lazy val metainf = new MetaInf;
   def declaredProperties():List[Property[ModelType[_],_<:Type]]=metainf.fToPropMap.values.toList;
   
-  //TODO REMOVE IT
+//  //TODO REMOVE IT
   protected[core] def getPropFromMetaInf(name:String):Property[this.type,_<:Type]={
     val q=getClass().getDeclaredField(name);
     return metainf.fToPropMap(q).asInstanceOf[Property[this.type,_<:Type]];
@@ -268,6 +268,13 @@ case class BuiltInType[T](val builtIn: Class[T]) extends Type with IType {
     return Modifier.isAbstract(builtIn.getModifiers)||Modifier.isInterface(builtIn.getModifiers);
   }
   
+}
+class TypeUniverse(){
+  private var _types=List[Type]();
+  
+  def types():List[Type]=_types;
+  def add(t:Type)=_types=_types.::(t);
+  def remove(t:Type)=_types=_types.filter { x => x!=t };
 }
 
 object BuiltInType{

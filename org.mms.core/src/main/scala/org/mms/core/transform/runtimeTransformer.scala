@@ -248,8 +248,19 @@ case class ObjectInitTransform[D, D1, SR, TR](val tP: IRuntimeProperty[D, SR],in
   def apply(v1: D, v2: D1): Unit = {
     val to=tP.range().newInstance();
     initFunction.apply(v1,to.asInstanceOf[TR]);
-    tP.set(v2.asInstanceOf[D],to);
-    
+    tP.set(v2.asInstanceOf[D],to);    
+  }
+}
+
+case class ManyToManyInitTransform[D, D1, SR, TR](val tP: IRuntimeProperty[D, SR],initFunction:Tranformation[D,TR]) extends Tranformation[D, D1] {
+  
+  if (tP==null||tP.range()==null){
+    throw new IllegalArgumentException();
+  }
+  def apply(v1: D, v2: D1): Unit = {
+    val to=tP.range().newInstance();
+    initFunction.apply(v1,to.asInstanceOf[TR]);
+    tP.set(v2.asInstanceOf[D],to);    
   }
 }
 case class RuntimeCondition(){

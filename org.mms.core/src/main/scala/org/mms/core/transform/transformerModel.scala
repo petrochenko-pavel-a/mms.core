@@ -19,7 +19,6 @@ import org.mms.core.runtime.IRuntimeProperty
 import scala.collection.mutable.MultiMap
 import scala.collection.mutable.HashMap
 
-
 trait CanBuildTransform {
 
   def build: TransformationPrototype;
@@ -32,23 +31,22 @@ trait TransformationPrototype {
 trait CanProduceTransformation {
 
   def toTransformation(): Tranformation[_, _];
-  
-  def targetProps():Seq[PropertyModel];
+
+  def targetProps(): Seq[PropertyModel];
 }
 
 case class OneToOne(val first: PropertyModel, another: PropertyModel, val tfunction: TransformationPrototype = null) extends CanProduceTransformation {
-  
-  def targetProps():Seq[PropertyModel]=List(another);
-  
+
+  def targetProps(): Seq[PropertyModel] = List(another);
+
   def toTransformation(): Tranformation[_, _] =
     {
       if (first.isInstanceOf[ListProp[_, _]] && another.isInstanceOf[ListProp[_, _]]) {
         if (tfunction != null) {
           val x = tfunction.toTransform(first.range, another.range);
           return OneToOnePropertyTransform.createWithTransform(first, another, listTransformFunction(x).asInstanceOf[TranformationFunction[_, _]]);
-        }
-        else{
-          val x:TranformationFunction[_,_] = identityFunction.asInstanceOf[TranformationFunction[_,_]];
+        } else {
+          val x: TranformationFunction[_, _] = identityFunction.asInstanceOf[TranformationFunction[_, _]];
           return OneToOnePropertyTransform.createWithTransform(first, another, listTransformFunction(x).asInstanceOf[TranformationFunction[_, _]]);
         }
       }
@@ -57,35 +55,35 @@ case class OneToOne(val first: PropertyModel, another: PropertyModel, val tfunct
       } else OneToOnePropertyTransform(first, another);
     }
 }
-case class UnversalTransform(val q: TransformationPrototype,f: Type, t: Type) extends TranformationFunction[Any,Any]{
-  def apply(a:Any):Any={
-    val z=q.toTransform(f,t).asInstanceOf[TranformationFunction[Any,Any]];
+case class UnversalTransform(val q: TransformationPrototype, f: Type, t: Type) extends TranformationFunction[Any, Any] {
+  def apply(a: Any): Any = {
+    val z = q.toTransform(f, t).asInstanceOf[TranformationFunction[Any, Any]];
     return z.apply(a);
- }
+  }
 }
 
 object NilPrototype extends TransformationPrototype with CanProduceTransformation {
-  
-  def targetProps():Seq[PropertyModel]=throw new UnsupportedOperationException;
+
+  def targetProps(): Seq[PropertyModel] = throw new UnsupportedOperationException;
   def toTransform(f: Type, t: Type): TranformationFunction[_, _] = {
-    val z=TransformationModelRegistry.get(f, t);
-    if (z==this){
+    val z = TransformationModelRegistry.get(f, t);
+    if (z == this) {
       return null;
     }
-    return UnversalTransform(z,f,t);   
+    return UnversalTransform(z, f, t);
   }
 
   def toTransformation(): Tranformation[_, _] = {
-   return null;
+    return null;
   }
 }
-class CompositeTransformation(val transforms: Seq[CanProduceTransformation],targetType:Type) extends TransformationPrototype {
-  if (transforms.contains(NilPrototype)){
+class CompositeTransformation(val transforms: Seq[CanProduceTransformation], targetType: Type) extends TransformationPrototype {
+  if (transforms.contains(NilPrototype)) {
     throw new IllegalStateException;
   }
-  
+
   def toTransformation(): Tranformation[_, _] = {
-    val trList=transforms.map { x => x.toTransformation() }.toList;
+    val trList = transforms.map { x => x.toTransformation() }.toList;
     return new TransformationList(trList: _*);
   }
   def toTransform(f: Type, t: Type): TranformationFunction[_, _] =
@@ -111,10 +109,9 @@ object TransformationModelRegistry {
     if (tr != null) {
       val at = (t, tr);
       transforms = transforms + at;
-    }
-    else{
+    } else {
       tr = new MultiTypeTransform(from, to).build();
-      println("Can not build transform from:"+from+" "+to)
+      println("Can not build transform from:" + from + " " + to)
     }
     return tr;
   }
@@ -176,50 +173,83 @@ case class MultiTypeTransform(from: Type, to: Type) extends CanBuildTransform {
     var allF = (from.allSubClasses() + from);
     allF = allF.filter { x => !x.isAbstract() }
     val allT = (to.allSubClasses() + to).filter { x => !x.isAbstract() };
-      if (allF.size==1&&allT.size==1){
-        return TransformBuilder(allF.toList(0),allT.toList(0)).build();
-      }
-      allF = allF -- allT;
-      if (allF.size > 0 && allT.size > 0) {
-        //we need to build descriminator here.
-        var list = List[TypeDescriminator]()
-        for (t <- allF) {
-          val descr = buildDescriminator(t, allT);
-          if (descr == null) {
-            return null;
-          }
-          list = list.::(descr);
+    if (allF.size == 1 && allT.size == 1) {
+      return TransformBuilder(allF.toList(0), allT.toList(0)).build();
+    }
+    allF = allF -- allT;
+    if (allF.size > 0 && allT.size > 0) {
+      //we need to build descriminator here.
+      var list = List[TypeDescriminator]()
+      for (t <- allF) {
+        val descr = buildDescriminator(t, allT);
+        if (descr == null) {
+          return null;
         }
-        return DescPrototypes(list: _*);
-      }     
+        list = list.::(descr);
+      }
+      return DescPrototypes(list: _*);
+    }
     return null;
   }
 }
 
-class SubPropertyInitializer(val up:PropertyModel,val trs:List[CanProduceTransformation]) extends CanProduceTransformation {
+class SubPropertyInitializerOneToOne(val up: PropertyModel, val trs: List[CanProduceTransformation]) extends CanProduceTransformation {
+
+  def targetProps(): Seq[PropertyModel] = List(up);
   
-  def targetProps():Seq[PropertyModel]=List(up);
+  if (up.isDecorated()){
+    throw new IllegalArgumentException();
+  }
+
+  def toTransformation(): Tranformation[_, _] = {
+    
+    //TODO choose correct type
+    val v0: IRuntimeProperty[Any, Any] = RuntimeImplicits.propToRuntime(up).asInstanceOf[IRuntimeProperty[Any, Any]];
+    val c = new CompositeTransformation(trs, up.domain()).toTransformation();
+    
+    val v1: Tranformation[Any, Any] = c.asInstanceOf[Tranformation[Any, Any]];
+    return new ObjectInitTransform(v0, v1);
+  }
+}
+class SubPropertyInitializerOneToMany(val up: PropertyModel, val trs: List[CanProduceTransformation]) extends CanProduceTransformation {
+
+  def targetProps(): Seq[PropertyModel] = List(up);
   
+  if (!up.isDecorated()){
+    throw new IllegalArgumentException();
+  }
+
   def toTransformation(): Tranformation[_, _] = {
     //TODO choose correct type
-    val v0:IRuntimeProperty[Any,Any]=RuntimeImplicits.propToRuntime(up).asInstanceOf[IRuntimeProperty[Any,Any]];
-    val c=new CompositeTransformation(trs,up.domain()).toTransformation();
-    val v1:Tranformation[Any,Any]=c.asInstanceOf[Tranformation[Any,Any]];
-    return new ObjectInitTransform(v0,v1);
+    var ps=Set[PropertyModel]();
+    for (tr<-trs){
+      
+      ps=ps++tr.targetProps();
+    }
+    for (p<-ps){
+      val pch=p.about(classOf[ParentChildAssertion[_,_]]);
+      if(!pch.isEmpty){
+        println(pch)
+      }
+    }
+    val v0: IRuntimeProperty[Any, Any] = RuntimeImplicits.propToRuntime(up).asInstanceOf[IRuntimeProperty[Any, Any]];
+    val c = new CompositeTransformation(trs, up.domain()).toTransformation();
+    val v1: Tranformation[Any, Any] = c.asInstanceOf[Tranformation[Any, Any]];
+    return new ManyToManyInitTransform(v0, v1);
   }
 }
 
-case class InitDefault(val up:PropertyModel) extends CanProduceTransformation {
-  
+case class InitDefault(val up: PropertyModel) extends CanProduceTransformation {
+
   def toTransformation(): Tranformation[_, _] = {
     //TODO choose correct type
-    val v0:IRuntimeProperty[Any,Any]=RuntimeImplicits.propToRuntime(up).asInstanceOf[IRuntimeProperty[Any,Any]];
-    val c=new CompositeTransformation(List(),up.domain()).toTransformation();
-    val v1:Tranformation[Any,Any]=c.asInstanceOf[Tranformation[Any,Any]];
-    return new ObjectInitTransform(v0,v1);
+    val v0: IRuntimeProperty[Any, Any] = RuntimeImplicits.propToRuntime(up).asInstanceOf[IRuntimeProperty[Any, Any]];
+    val c = new CompositeTransformation(List(), up.domain()).toTransformation();
+    val v1: Tranformation[Any, Any] = c.asInstanceOf[Tranformation[Any, Any]];
+    return new ObjectInitTransform(v0, v1);
   }
-  
-  def targetProps():Seq[PropertyModel]=List(up);
+
+  def targetProps(): Seq[PropertyModel] = List(up);
 }
 
 /**
@@ -232,14 +262,14 @@ case class TransformBuilder(from: Type, to: Type) extends CanBuildTransform {
 
   def build(): TransformationPrototype = {
     val sourceProp: Set[PropertyModel] = from.properties();
-    val tProps: Set[PropertyModel] = to.properties();
+    val tProps: Set[PropertyModel] = to.properties().map { x => x.rootProperty() };
     var noMappingTo = Set[PropertyModel]();
     var transforms = Map[PropertyModel, CanProduceTransformation]();
     for (pOf <- sourceProp) {
       if (pOf.range() != NothingType) {
 
         val howMapsToTarget: SomeTransform = buildPerfectMapping(pOf, tProps);
-        if (howMapsToTarget==NilPrototype){
+        if (howMapsToTarget == NilPrototype) {
           throw new IllegalStateException;
         }
         if (howMapsToTarget == null) {
@@ -255,89 +285,85 @@ case class TransformBuilder(from: Type, to: Type) extends CanBuildTransform {
       return null;
     }
     //no we should group sub property initialization together;
-    val allTransforms= transforms.values.toSeq;
-    var reified=upLift(allTransforms,tProps);
-    
-    return new CompositeTransformation(reified,to);
-  }
-  
+    val allTransforms = transforms.values.toSeq;
+    var reified = upLift(allTransforms, tProps);
 
-  def upLift(allTransforms: Seq[org.mms.core.transform.CanProduceTransformation],tProps: Set[PropertyModel]):List[org.mms.core.transform.CanProduceTransformation] = {
-    val mappings=allTransforms.groupBy{rootProp};
-    var reified=List[CanProduceTransformation]();
-    
-    for (v<-mappings){
-      if (v._1==null){
-        reified=reified.:::(v._2.toList);
-      }
-      else{
+    return new CompositeTransformation(reified, to);
+  }
+
+  def upLift(allTransforms: Seq[org.mms.core.transform.CanProduceTransformation], tProps: Set[PropertyModel]): List[org.mms.core.transform.CanProduceTransformation] = {
+    val mappings = allTransforms.groupBy { rootProp };
+    var reified = List[CanProduceTransformation]();
+
+    for (v <- mappings) {
+      if (v._1 == null) {
+        reified = reified.:::(v._2.toList);
+      } else {
         //FIXME Direct assertions about stuff asserted in sub properties
-        var upLifted=List[CanProduceTransformation]();
-        for (m<-v._2){
-          val oto=m.asInstanceOf[OneToOne];
-          if (oto.another.isInstanceOf[SubProp[_,_]]){
-            val upLift=oto.another.asInstanceOf[SubProp[_,_]].oneLevelUp();
-            val current=oto.first;
-            val newOne=OneToOne(current,upLift,oto.tfunction);
-            upLifted=upLifted.::(newOne);
-          }
-          else{
+        var upLifted = List[CanProduceTransformation]();
+        for (m <- v._2) {
+          val oto = m.asInstanceOf[OneToOne];
+          var withoutDec = oto.another.withoutDecorators()
+          if (withoutDec.isInstanceOf[SubProp[_, _]]) {
+            val upLift = withoutDec.asInstanceOf[SubProp[_, _]].oneLevelUp();
+            val current = oto.first;
+            val newOne = OneToOne(current, upLift, oto.tfunction);
+            upLifted = upLifted.::(newOne);
+          } else {
             throw new IllegalStateException;
           }
         }
         val tProps: Set[PropertyModel] = v._1.range().properties();
-        reified=reified.::(new SubPropertyInitializer(v._1,upLift(upLifted,tProps)));
+        var initializer:CanProduceTransformation=null;
+        if(v._1.isDecorated()){
+          //one to many
+           
+           initializer=new SubPropertyInitializerOneToMany(v._1, upLift(upLifted, tProps));
+        }
+        else{
+          //one to one//it is simple case
+          initializer=new SubPropertyInitializerOneToOne(v._1, upLift(upLifted, tProps));
+        }
+        reified = reified.::(initializer);
         //this is sub property grouping;
       }
     }
-    var affectedProps=Set[PropertyModel]();
-    for (x<-reified){
-      affectedProps=affectedProps.++(x.targetProps());
+    var affectedProps = Set[PropertyModel]();
+    for (x <- reified) {
+      affectedProps = affectedProps.++(x.targetProps());
     }
-    var unaffectedProps=tProps--affectedProps;
-    for (p<-unaffectedProps){
-      if (p.isRequired){
-         reified=reified.::(InitDefault(p)); 
+    var unaffectedProps = tProps -- affectedProps.map { x => x.rootProperty() };
+    for (p <- unaffectedProps) {
+      if (p.isRequired) {
+        reified = reified.::(InitDefault(p));
       }
     }
     reified
   }
-  def rootProp(x:CanProduceTransformation):PropertyModel={
-      if (x.isInstanceOf[OneToOne]){
-        val oto=x.asInstanceOf[OneToOne];
-        if (oto.another.isInstanceOf[SubProp[_,_]]){
-          return oto.another.asInstanceOf[SubProp[_,_]].rootProperty();
-        }
-        return null;
-      } 
-      else{
-        return null;
-      }  
+  def rootProp(x: CanProduceTransformation): PropertyModel = {
+    if (x.isInstanceOf[OneToOne]) {
+      val oto = x.asInstanceOf[OneToOne];
+      var xp = oto.another.withoutDecorators();
+      if (xp.isInstanceOf[SubProp[_, _]]) {
+        return xp.rootProperty();
+      }
+      return null;
+    } else {
+      return null;
+    }
   }
-  
+
   def buildPerfectMapping(s: PropertyModel, target: Set[PropertyModel]): SomeTransform = {
     val assertions = Entity.about(s, classOf[PropertyAssertion]);
     //here we may do a lot of smart things but for now we will be dumb, not transitivity, e.t.c at the moment
     for (x <- assertions) {
       x match {
         case TransformsOneToOne(sp, tp) => {
-          if (tp.isInstanceOf[SubProp[_,_]]){
-            if (target.contains(tp.asInstanceOf[SubProp[_,_]].rootProperty)){
-               val tr: SomeTransform = buildTransform(sp, tp);
-               return tr; 
-            }
-          }
-          if (sp.isInstanceOf[SubProp[_,_]]){
-            if (target.contains(sp.asInstanceOf[SubProp[_,_]].rootProperty)){
-               val tr: SomeTransform = buildTransform(tp, sp);
-               return tr; 
-            }
-          }
-          if (target.contains(tp)) {
+          if (target.contains(tp.rootProperty())) {
             val tr: SomeTransform = buildTransform(sp, tp);
             return tr;
           }
-          if (target.contains(sp)) {
+          if (target.contains(sp.rootProperty())) {
             val tr: SomeTransform = buildTransform(tp, sp);
             return tr;
           }

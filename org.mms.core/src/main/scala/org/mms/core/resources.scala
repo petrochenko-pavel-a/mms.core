@@ -36,10 +36,11 @@ trait Entity[T <: Entity[T]] {
   var annotations=List[Tuple2[Entity[_],FactAnnotation]]();
   
   protected def register[X<:Entity[X]](c:Entity[X],f:FactAnnotation){
-    Entity.registerElement(c, f);
+    Entity.registerElement(c.getTrueVersionOfThis(), f);
     val tp:Tuple2[Entity[X],FactAnnotation]=(c,f);
     annotations=annotations.::(tp);
   }
+  protected def getTrueVersionOfThis():Entity[_]=this;
   
   protected def remove(c:Entity[T]){
      for( a<-c.annotations){
@@ -58,7 +59,7 @@ trait Entity[T <: Entity[T]] {
     return directStatementsAboutThis(t);
   }
   def directStatementsAboutThis[T<:FactAnnotation](t:Class[T]):scala.collection.immutable.Set[T]={
-    var v=Entity.annotations.get(this);
+    var v=Entity.annotations.get(this.getTrueVersionOfThis());
     if (v.isDefined){
       return v.get.filter { x => t.isInstance(x) }.asInstanceOf[Set[T]].toSet;
     }
