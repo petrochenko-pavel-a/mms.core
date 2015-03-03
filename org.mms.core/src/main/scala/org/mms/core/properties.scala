@@ -20,6 +20,7 @@ abstract class Property[DomainType <: Type, RangeType <: Type] extends Entity[Pr
     val r = range().getClass;
 
     val constructor = range.getClass.getDeclaredConstructor();
+    val c=StackDetails.prop.get;
     try {
       StackDetails.prop.set(this);
       constructor.setAccessible(true); //TODO Super classes and interfaces
@@ -36,6 +37,7 @@ abstract class Property[DomainType <: Type, RangeType <: Type] extends Entity[Pr
     } finally {
       StackDetails.prop.set(null);
       constructor.newInstance();
+      StackDetails.prop.set(c);
     }
   };
   private def makeModifiable(f: Field) {
@@ -66,6 +68,7 @@ abstract class Property[DomainType <: Type, RangeType <: Type] extends Entity[Pr
   protected def init() {
     val d=domain().asInstanceOf[ModelType[_]];
     this.index=d.index;
+    d.register(this);
     d.index=d.index+1;
     if (StackDetails.prop.get == null) {
       register(domain, isPropertyOf(domain, this));
@@ -159,8 +162,28 @@ private abstract class ObjectDefinedProp[D <: ModelType[_], R <: Type](val domai
     }
     return field.getName;
   }
+  
+  override def hashCode():Int={
+    return domain.hashCode()+index.hashCode();
+  }
+  override def equals(v:Any):Boolean={
+    if (v.getClass()!=this.getClass){
+      return false;
+    }
+    val m=v.asInstanceOf[ObjectDefinedProp[D,R]];
+    return this.domain==m.domain&&this.index==m.index;
+  }
 
- 
+   protected[core] override  def getTrueVersionOfThis():Entity[_]={
+    if (!locked){
+      return this;
+    }
+    val x=domain.getProperty(index);
+    if (x!=null){
+      return x;
+    }
+    return this;
+  }
 }
 
 private[core] class Prop[D <: ModelType[_], R <: Type](override val domain: D, val range: R) extends ObjectDefinedProp[D, R](domain);

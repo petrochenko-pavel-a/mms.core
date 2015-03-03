@@ -8,6 +8,8 @@ import org.mms.core.runtime.RuntimeProperty
 import org.mms.core.runtime.IsDescribedIn
 import java.lang.reflect.Modifier
 import org.mms.core.runtime.MapsTo
+import java.util.ArrayList
+import java.util.Arrays.ArrayList
 
 trait Type extends Entity[Type] {
   def superType: Type
@@ -168,7 +170,7 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
   
   protected def propOf[T](t:Class[T]):Property[this.type,_<:BuiltInType[T]]  = new Prop(this, BuiltInType(t));
   
-  protected def packageName:String=getClass.getPackage.getName;
+  def packageName:String=getClass.getPackage.getName;
   
   val NOTHING=new Prop(this,NothingType){ override def  name()="NOTHING"};
   
@@ -183,6 +185,16 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
     MapsTo(c,this);
   }
   
+  private var allProperties:ArrayList[Property[_,_]]=_;
+  
+  
+  protected [core] def register(p:Property[_,_]):Unit={
+    if (allProperties==null){
+      allProperties=new ArrayList[Property[_,_]]();
+    }
+    allProperties.add(p);
+  }
+  protected [core] def getProperty(num:Int)=allProperties.get(num);
   
   
   private[core] class MetaInf {
@@ -270,11 +282,11 @@ case class BuiltInType[T](val builtIn: Class[T]) extends Type with IType {
   
 }
 class TypeUniverse(){
-  private var _types=List[Type]();
+  private var _types=List[ModelType[_]]();
   
-  def types():List[Type]=_types;
-  def add(t:Type)=_types=_types.::(t);
-  def remove(t:Type)=_types=_types.filter { x => x!=t };
+  def types():List[ModelType[_]]=_types;
+  def add(t:ModelType[_])=_types=_types.::(t);
+  def remove(t:ModelType[_])=_types=_types.filter { x => x!=t };
 }
 
 object BuiltInType{
