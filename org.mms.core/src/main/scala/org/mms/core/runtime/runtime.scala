@@ -4,6 +4,7 @@ import org.mms.core.Property
 import org.mms.core._
 import java.lang.reflect.Method
 import scala.collection.TraversableLike
+import org.mms.core.codemodel.SourceUnit
 
 trait IRuntimeProperty[D, R] {
   def meta(): PropertyModel;
@@ -41,6 +42,9 @@ trait IRuntimeProperty[D, R] {
   }
   def set(d: D, r1: R) {
     var r = r1;
+    if (r1.isInstanceOf[SourceUnit]){
+      println("A")
+    }
     val interceptors = meta().about(classOf[ModifyInterceptor]);
     for (i <- interceptors) {
       r = i.beforeModify(this, d, r1).asInstanceOf[R];
@@ -64,16 +68,13 @@ trait IRuntimeProperty[D, R] {
   };
 
   private def determineProp(p: PropertyModel): Tuple2[PropertyModel, PropertyModel] = {
-    var x = p;
-    while (x.isInstanceOf[DelegateProp[_ <: Type, _ <: Type]]) {
-      x = x.asInstanceOf[DelegateProp[_ <: Type, _ <: Type]].p;
-    }
+    var x = p.withoutDecorators();
     if (x.isInstanceOf[SubProp[_ <: Type, _ <: Type]]) {
       val sp = x.asInstanceOf[SubProp[_ <: Type, _ <: Type]];
       val cand = sp.childProperty();
       return (cand, sp.parent);
     }
-    return null;
+    return (p,null.asInstanceOf[PropertyModel]);
   }
   private def getActualValue(v: ValueModel, base: D, newValue: R, oldValue: R): Any = {
     v match {
@@ -246,6 +247,10 @@ class RuntimeMeta[D, R](val pn: String, dC: Class[D], rC: Class[R]) extends Prop
   def name(): String = pn;
 
   def range(): BuiltInType[R] = rC;
+  
+  override protected def init() {
+    
+  }
 
   override def withName(name: String): Property[BuiltInType[D], BuiltInType[R]] = {
     throw new UnsupportedOperationException();
@@ -330,7 +335,7 @@ object KeyUtils {
       val m = getValue(pp, obj);
       return new Tuple2(kv, m);
     }
-    return null;
+    return pp;    
   }
 }
 

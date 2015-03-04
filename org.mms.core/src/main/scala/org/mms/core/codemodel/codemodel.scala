@@ -116,10 +116,12 @@ class ModelElement[C <: IModelElement[_]] extends IModelElement[C] {
 }
 class Package extends ModelElement[ISourceUnit] with IPackage{
   override def children_=(c: List[ISourceUnit]) ={
-    if (!c.isEmpty&&c(0).toString().equals("SourceTypeModel")){
-      println(c);
-    }
+  
     super.children_=(c);    
+  }
+  
+  def parent_=(q:CodeModel):Unit={
+    println("AA"+q)
   }
 }
 class SourceUnit extends ModelElement[ISourceType] with ISourceUnit;
@@ -152,6 +154,14 @@ class SourceMember extends ModelElement[Null] with IMember {
     return Set();
   }
 }
-class CodeModel extends ModelElement[IPackage] with IModel;
+class CodeModel extends ModelElement[IPackage] with IModel{
+  
+  override def children_=(c: List[IPackage]) ={
+    if(c!=null&&c.size==0){
+      println("A")
+    }
+    super.children_=(c);    
+  }
+}
 
 

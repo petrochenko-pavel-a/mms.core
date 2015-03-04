@@ -31,6 +31,23 @@ case class ParentChildAssertion[P <: Type, C <: Type](val parent: Property[_<:Ty
      }
     
   })
+  
+  override def hashCode():Int={
+    return parent.hashCode()+child.hashCode();
+  }
+  override def equals(o:Any):Boolean={
+    if (o.getClass!=this.getClass){
+      return false;
+    }
+    val another=o.asInstanceOf[ParentChildAssertion[P,C]];
+    if (this.parent==another.parent){
+      if (this.child==another.child){
+        return true;
+      }
+    }
+    return false;
+  }
+  
   register(parent, this);
   register(child, this);
   /*register(parent.rootProperty().withDecorators(), this);

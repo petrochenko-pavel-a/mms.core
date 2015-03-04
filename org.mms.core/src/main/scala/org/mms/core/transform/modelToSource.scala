@@ -19,24 +19,22 @@ import javax.lang.model.element.PackageElement
 import org.mms.core.codemodel.Package
 import org.mms.core.ParentChildAssertion
 import org.mms.core.codemodel.CodeModel
+import org.mms.core.codemodel.SourceUnit
 
 /**
  * code model related models
  */
-object ITypeModel extends AbstractType {
-
-}
+object ITypeModel extends AbstractType {}
 
 object CodeModelModel extends ModelType {
   val name = key(str);
-  val children = list(propOf(PackageElementModel));
-  
+  val children = list(propOf(PackageElementModel));  
 }
 
 object PackageElementModel extends ModelType() {
   val name = key(str);
   val parent = required(propOf(CodeModelModel));
-  val children = list(propOf(SourceTypeModel));
+  val children = list(propOf(SourceUnitModel));
   ParentChildAssertion(parent,CodeModelModel.children);//more convinient way is to mark prop with parent
 }
 
@@ -45,21 +43,17 @@ object SourceTypeModel extends ModelType(ITypeModel) {
   val superClass = propOf(classOf[IType]);
   val children = list(propOf(SourceMemberModel));
   
-  val parent = required(propOf(PackageElementModel))
-  
-  ParentChildAssertion(parent,PackageElementModel.children);//more convinient way is to mark prop with parent
+  val parent = required(propOf(SourceUnitModel))
+  ParentChildAssertion(parent,SourceUnitModel.children);//more convinient way is to mark prop with parent
   
   //listof
 }
-/**
- * when constructing target property value
- * and initializing tree parent check if it can be replaced with existing one
- *   parent can be be replaced with existing one if its global key equals with current one global key
- * 
- *
- */
-
-
+object SourceUnitModel extends ModelType{
+  val name = key(str);
+  val children = list(propOf(SourceTypeModel));
+  val parent = required(propOf(PackageElementModel));
+  ParentChildAssertion(parent,PackageElementModel.children);//more convinient way is to mark prop with parent
+}
 
 object SourceMemberModel extends ModelType {
   val name = str;
@@ -99,6 +93,7 @@ object Mappings extends AssertionContainer {
     PackageElementModel<=>classOf[Package];
     CodeModelModel<=>classOf[CodeModel];
     SourceMemberModel <=> classOf[SourceMember]; //We should be able to build transform proto without mapping
+    SourceUnitModel<=>classOf[SourceUnit]
     TypeModel <=> classOf[Type]
     PropertyModelModel <=> classOf[Property[_, _]] //We should check compatibility when stating it
     ModelTypeModel <=> classOf[ModelType[_]];
@@ -114,6 +109,7 @@ object Mappings extends AssertionContainer {
     ModelTypeModel.props <=> SourceTypeModel.children;
     TypeModel.typeNameProp <=> SourceTypeModel.name;
     TypeModel.superTypeProp <=> SourceTypeModel.superClass
+    SourceTypeModel.parent.$.parent.$.name<=>ModelTypeModel.modelPackage;
     SourceTypeModel.parent.$.name<=>ModelTypeModel.modelPackage;
     //Property to SourceMember conversion
     PropertyModelModel.name <=> SourceMemberModel.name;
@@ -132,12 +128,12 @@ object TestApp extends App {
   val p1=SourceTypeModel.parent.$.children;
   val p2=SourceTypeModel.parent.$.children;
   println(p1==p2)
- /* val x=CodeModelModel.children.$.children;
+ val x=CodeModelModel.children.$.children;
   println(x);
   var v: IModelElement[_] = Transformers.transformer(classOf[ModelType[_]], classOf[SourceType])(SourceTypeModel);
   println(v);
-  
-  val u=new TypeUniverse();
+ 
+  /*val u=new TypeUniverse();
   u.add(SourceTypeModel);
   u.add(SourceMemberModel);
   

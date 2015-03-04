@@ -252,15 +252,27 @@ case class ObjectInitTransform[D, D1, SR, TR](val tP: IRuntimeProperty[D, SR],in
   }
 }
 
-case class ManyToManyInitTransform[D, D1, SR, TR](val tP: IRuntimeProperty[D, SR],initFunction:Tranformation[D,TR]) extends Tranformation[D, D1] {
+case class ManyToManyInitTransform[D, D1, SR, TR](val tP: IRuntimeProperty[D, SR],initFunction:Tranformation[D,TR],
+    childProp:IRuntimeProperty[Any,Any],parentProp:IRuntimeProperty[Any,Any],delegate:DelegatingProp) extends Tranformation[D, D1] {
   
   if (tP==null||tP.range()==null){
     throw new IllegalArgumentException();
   }
   def apply(v1: D, v2: D1): Unit = {
     val to=tP.range().newInstance();
+    
     initFunction.apply(v1,to.asInstanceOf[TR]);
-    tP.set(v2.asInstanceOf[D],to);    
+    val childs=delegate.newValue;
+    println(childs)
+    var parents:Set[Any]=Set();
+    if(childs.isInstanceOf[List[_]]){
+      val lst=childs.asInstanceOf[List[_]];
+      for (m<-lst){
+        val parent=parentProp.get(m);
+        parents=parents+parent;
+      }
+    }
+    tP.set(v2.asInstanceOf[D],parents.toList.asInstanceOf[SR]);    
   }
 }
 case class RuntimeCondition(){
@@ -345,6 +357,11 @@ case class transformFunction[R, R1](cl: Class[R1]) extends TranformationFunction
 }
 
 case class listTransformFunction[SC, TC, R <: Traversable[SC]](val tf: Function1[SC, TC]) extends TranformationFunction[R, List[TC]] {
+  
+  
+  if (tf==null){
+    throw new IllegalArgumentException;
+  }
   def apply(v1: R): List[TC] = {
     var vr: List[TC] = List();
     for (e <- v1) {

@@ -211,12 +211,58 @@ class SubPropertyInitializerOneToOne(val up: PropertyModel, val trs: List[CanPro
     return new ObjectInitTransform(v0, v1);
   }
 }
+case class DelegatingProp(p:IRuntimeProperty[Any,Any]) extends IRuntimeProperty[Any,Any] {
+    def getter(): Any => Any = {
+      p.getter()
+    }
+
+    def meta(): PropertyModel = {
+      p.meta();
+    }
+
+    def range(): Class[Any] = {
+      p.range();
+    }
+    
+    var newValue:Any=_;
+
+    def setter(): (Any, Any) => Unit = {
+      return new Function2[Any,Any,Unit](){
+        
+        def apply(b:Any,v:Any):Unit={
+          newValue=v;
+        }
+      }
+    }
+  }
 class SubPropertyInitializerOneToMany(val up: PropertyModel, val trs: List[CanProduceTransformation]) extends CanProduceTransformation {
 
   def targetProps(): Seq[PropertyModel] = List(up);
   
   if (!up.isDecorated()){
     throw new IllegalArgumentException();
+  }
+  
+  
+  var dp:DelegatingProp=_;
+  
+  def isChild(z:Tranformation[_, _],child:PropertyModel):Tranformation[_,_]={
+    if (z.isInstanceOf[OneToOnePropertyTransform[_,_,_,_]]){
+      val tp=z.asInstanceOf[OneToOnePropertyTransform[_,_,_,_]];
+      val ap:IRuntimeProperty[_,_] =tp.tP;
+      val meta=ap.meta();
+       val pch=meta.about(classOf[ParentChildAssertion[_,_]]);
+      if(!pch.isEmpty){
+        for (p<-pch){
+          val chP=p.child.asInstanceOf[PropertyModel];
+          val ppP=p.parent.asInstanceOf[PropertyModel];
+          if (meta==chP){
+          dp=new DelegatingProp(ap.asInstanceOf[IRuntimeProperty[Any,Any]]);
+          return  OneToOnePropertyTransform(tp.sP,dp,tp.tF.asInstanceOf[Function1[Any,Any]]);
+          }
+      }}
+    }
+    return z;
   }
 
   def toTransformation(): Tranformation[_, _] = {
@@ -226,16 +272,32 @@ class SubPropertyInitializerOneToMany(val up: PropertyModel, val trs: List[CanPr
       
       ps=ps++tr.targetProps();
     }
+   
+    val v0: IRuntimeProperty[Any, Any] = RuntimeImplicits.propToRuntime(up).asInstanceOf[IRuntimeProperty[Any, Any]];
+    val c = new CompositeTransformation(trs, up.domain()).toTransformation();
+    var v1: Tranformation[Any, Any] = c.asInstanceOf[Tranformation[Any, Any]];
+    
     for (p<-ps){
       val pch=p.about(classOf[ParentChildAssertion[_,_]]);
       if(!pch.isEmpty){
-        println(pch)
+        if (pch.size>1){
+          throw new IllegalArgumentException();
+        }
+        for (p<-pch){
+          val chP=p.child.asInstanceOf[PropertyModel];
+          val ppP=p.parent.asInstanceOf[PropertyModel];
+          val chpR:IRuntimeProperty[Any, Any]=RuntimeImplicits.propToRuntime(chP).asInstanceOf[IRuntimeProperty[Any, Any]]
+          if (v1.isInstanceOf[TransformationList[_,_]]){
+            val filtered=v1.asInstanceOf[TransformationList[_,_]].seq.map(p=>isChild(p,chP)).toList.asInstanceOf[List[Tranformation[Any,Any]]];
+            v1=TransformationList(filtered:_*);
+          }
+          val parentPropR:IRuntimeProperty[Any, Any]=RuntimeImplicits.propToRuntime(ppP).asInstanceOf[IRuntimeProperty[Any, Any]];
+          return new ManyToManyInitTransform(v0, v1,chpR,parentPropR,dp);
+        }
       }
     }
-    val v0: IRuntimeProperty[Any, Any] = RuntimeImplicits.propToRuntime(up).asInstanceOf[IRuntimeProperty[Any, Any]];
-    val c = new CompositeTransformation(trs, up.domain()).toTransformation();
-    val v1: Tranformation[Any, Any] = c.asInstanceOf[Tranformation[Any, Any]];
-    return new ManyToManyInitTransform(v0, v1);
+    throw new IllegalStateException;    
+    
   }
 }
 

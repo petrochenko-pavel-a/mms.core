@@ -30,7 +30,9 @@ class ModelBuilder{
      val st=getOrCreateType(u,t);
      for (prop<-t.properties()){
        val memb=new SourceMember()
-       memb
+       memb.name=prop.name();
+       st.children=st.children.::(memb);
+       //todo configure type;
      }
   }
   def getOrCreateType(unit:ISourceUnit,t:ModelType[_]):ISourceType={
