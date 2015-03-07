@@ -113,6 +113,8 @@ object NothingType extends ModelType {
   
   
 };
+
+
 class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:withTrait=withTrait()) extends Type {
   
   def modelType():ModelType[_]=this;
@@ -147,6 +149,10 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
   def isAbstract():Boolean=_abstract;
   
   protected def abstractType{_abstract=true}
+  def pretransform (p:Property[this.type,_<:Type]): Unit={
+    register(this,PretransformAssertion(this,p));
+  }
+  
   
   type UnknownProperty=Property[ModelType[_],_<:Type];
   protected def str = propOf(StrType);
@@ -164,6 +170,8 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
   }
   protected def listOf[T<:Type](t:T):Property[this.type,T] =list(propOf(t));
   protected def key[T<:Type](t:Property[this.type,T]):Property[this.type,T] ={t._key=true;t;}//TODO think is this good or not
+  protected def computed[T<:Type](t:Property[this.type,T]):Property[this.type,T] ={t._computed=true;t;}//TODO think is this good or not
+  
   protected def optional[T<:Type](t:Property[this.type,T]):Property[this.type,T] ={t._required=false;t;};
   protected def required[T<:Type](t:Property[this.type,T]):Property[this.type,T] ={t._required=true;t;}
   protected def list[T<:Type](t:Property[this.type,T]):Property[this.type,T] =ListProp(t);
@@ -184,6 +192,9 @@ class ModelType[T<:ModelType[_]](val superType: Type = null,val withInterfaces:w
     MapsTo(this,c);
     MapsTo(c,this);
   }
+  
+  def <=>[A <: Type](p: EqToConstantAssertion): ConstantDescriminator = ConstantDescriminator(this, p);
+
   
   private var allProperties:ArrayList[Property[_,_]]=_;
   

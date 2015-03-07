@@ -50,8 +50,10 @@ abstract class Property[DomainType <: Type, RangeType <: Type] extends Entity[Pr
   var index=0;
   def isKey = _key;
   def isRequired = _required;
+  def isComputed =_computed;
   protected[core] var _key = false;
   protected[core] var _required = false;
+  protected[core] var _computed=false;
   def range(): RangeType
   def domain(): DomainType
   def name(): String;
@@ -98,6 +100,8 @@ abstract class Property[DomainType <: Type, RangeType <: Type] extends Entity[Pr
   def typeDescr() = ":" + range();
 
   def <=>[A <: Type, B <: Type](p: Property[_, _]): PropertyAssertion = TransformsOneToOne(this, p.asInstanceOf[Property[A, B]]);
+  def <=>[A <: Type, B <: Type](p: Any): EqToConstantAssertion = EqToConstantAssertion(this, p);
+
 }
 
 trait PropertyAssertion extends FactAnnotation with Entity[PropertyAssertion] with Function1[Seq[PropertyAssertion], PropertyAssertion] {

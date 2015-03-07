@@ -14,6 +14,9 @@ import org.mms.core.runtime.RuntimeImplicits._
 import java.util.IdentityHashMap
 import java.util.HashMap
 import org.mms.core.runtime.RuntimeImplicits
+import org.mms.core.codemodel.Package
+import org.mms.core.codemodel.Package
+import scala.collection.immutable.HashSet
 trait Tranformation[F, T] extends Function2[F, T, Unit] {
 
 }
@@ -95,8 +98,25 @@ class TransformerRegistry {
    def exchangeKey(k:Any,vl:Any):Any={
      val z=keyMap.get(k);
      if (z!=null){
+       if (z!=vl){
+       //println("Deconstr:"+vl+":"+vl.getClass()+":"+System.identityHashCode(vl))
        deconstruct(vl);
+       }
+        if (z.isInstanceOf[Package]){
+       val q=z.asInstanceOf[Package];
+       if(q.parent()==null){
+         println("Error")
+       }
+     }
+       //println("Returning:"+z.getClass()+":"+System.identityHashCode(z))
        return z;
+     }
+     if (vl.isInstanceOf[Package]){
+       val q=vl.asInstanceOf[Package];
+       if(q.parent()==null){
+         println(deconst.contains(vl))
+         println("Error")
+       }
      }
      keyMap.put(k, vl);
      return vl;  
@@ -104,8 +124,12 @@ class TransformerRegistry {
    
    def get(s:Any,tr:Class[_]):Any=transformedMap.get(ObjectTargetClass(System.identityHashCode(s),tr,s));
 
+   var deconst=new HashSet[Any]
+   
    def deconstruct(vl: Any) = {
+     
      if (vl!=null){
+       deconst=deconst+vl;
        val tp=RuntimeImplicits.classToType(vl.getClass());
        for (p<-tp.properties()){
          if (needsDeconstruct(p)){
@@ -250,10 +274,28 @@ case class ObjectInitTransform[D, D1, SR, TR](val tP: IRuntimeProperty[D, SR],in
     initFunction.apply(v1,to.asInstanceOf[TR]);
     tP.set(v2.asInstanceOf[D],to);    
   }
+  
+  override def toString():String=tP.toString();
+}
+
+case class SetValueTransform[D, R,D1](val tP: IRuntimeProperty[D, R],v:R,requiredType:Class[_]) extends Tranformation[D, D1] {
+  
+  if (tP==null||tP.range()==null){
+    throw new IllegalArgumentException();
+  }
+  def apply(v1: D, v2: D1): Unit = {
+    if (requiredType.isInstance(v1)){
+    tP.set(v2.asInstanceOf[D],v);    
+    }
+  }
+  
+  override def toString():String=tP.toString()+"="+v;
 }
 
 case class ManyToManyInitTransform[D, D1, SR, TR](val tP: IRuntimeProperty[D, SR],initFunction:Tranformation[D,TR],
-    childProp:IRuntimeProperty[Any,Any],parentProp:IRuntimeProperty[Any,Any],delegate:DelegatingProp) extends Tranformation[D, D1] {
+    parentProp:IRuntimeProperty[Any,Any],delegate:DelegatingProp) extends Tranformation[D, D1] {
+  
+  
   
   if (tP==null||tP.range()==null){
     throw new IllegalArgumentException();
@@ -263,7 +305,6 @@ case class ManyToManyInitTransform[D, D1, SR, TR](val tP: IRuntimeProperty[D, SR
     
     initFunction.apply(v1,to.asInstanceOf[TR]);
     val childs=delegate.newValue;
-    println(childs)
     var parents:Set[Any]=Set();
     if(childs.isInstanceOf[List[_]]){
       val lst=childs.asInstanceOf[List[_]];

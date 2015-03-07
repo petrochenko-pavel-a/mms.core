@@ -5,6 +5,13 @@ trait IType {
 
   def fullName(): String;
 }
+case class ParameterizedType(baseType:IType,parameters:IType*) extends IType{
+  
+  def fullName()=baseType.fullName()
+  
+}
+
+
 trait IModelElement[C <: IModelElement[_]] {
   def name: String;
   def parent: IModelElement[_];
@@ -60,12 +67,19 @@ trait IModel extends IModelElement[IPackage] {
 }
 trait IPackage extends IModelElement[ISourceUnit]
 
-trait ISourceUnit extends IModelElement[ISourceType]
+trait HasPackage[T<:IModelElement[_]] extends IModelElement[T]{
+ def parentPackage()=getAncestorOfKind(classOf[IPackage]);
+}
 
-trait ISourceType extends IModelElement[IMember] with IType {
+trait ISourceUnit extends IModelElement[ISourceType] with HasPackage[ISourceType];
 
-  def parentPackage() = getAncestorOfKind(classOf[IPackage]);
+trait ISourceType extends IModelElement[IMember] with IType  with HasPackage[IMember]{
+
   def unit() = getAncestorOfKind(classOf[ISourceUnit]);
+  
+  def superClass: IType ;
+
+  def superInterfaces: Set[String] ;
 
   def fullName(): String = {
     val p = parentPackage();
@@ -77,8 +91,9 @@ trait ISourceType extends IModelElement[IMember] with IType {
 
 };
 
-trait IMember extends IModelElement[Null] {
+trait IMember extends IModelElement[Null] with HasPackage[Null] {
 
+  def isList:Boolean
   def elementsType(): IType
   def parentType() = getAncestorOfKind(classOf[ISourceType]);
 }
@@ -95,6 +110,11 @@ class ModelElement[C <: IModelElement[_]] extends IModelElement[C] {
   def children_=(c: List[C]) {
     if (c==null){
       return;
+    }
+    if (this.isInstanceOf[CodeModel]){
+      if (c==null||c.isEmpty){
+        println(this)
+      }
     }
     if (!mChildren.isEmpty) {
       for (ch <- mChildren) {
@@ -114,18 +134,9 @@ class ModelElement[C <: IModelElement[_]] extends IModelElement[C] {
     this.mChildren=c;
   }
 }
-class Package extends ModelElement[ISourceUnit] with IPackage{
-  override def children_=(c: List[ISourceUnit]) ={
-  
-    super.children_=(c);    
-  }
-  
-  def parent_=(q:CodeModel):Unit={
-    println("AA"+q)
-  }
-}
-class SourceUnit extends ModelElement[ISourceType] with ISourceUnit;
-class SourceType extends ModelElement[IMember] with ISourceType {
+class Package() extends ModelElement[ISourceUnit] with IPackage
+class SourceUnit() extends ModelElement[ISourceType] with ISourceUnit
+class SourceType() extends ModelElement[IMember] with ISourceType {
 
   var superClass: IType = _;
 
@@ -143,25 +154,26 @@ class SourceType extends ModelElement[IMember] with ISourceType {
   }
 }
 
-class SourceMember extends ModelElement[Null] with IMember {
+case class SourceMember() extends ModelElement[Null] with IMember {
   var elementsType: IType = _;
+  
+  var isReq : Boolean=false;
+  var isList: Boolean=false;
 
   protected override def ownDeps(): Set[String] = {
     if (elementsType != null) {
       var l = Set[String](elementsType.fullName());
+      if(isList){
+        l=l+"java.util.List";
+      }
       return l;
     }
+   
     return Set();
   }
 }
-class CodeModel extends ModelElement[IPackage] with IModel{
+case class CodeModel() extends ModelElement[IPackage] with IModel{
   
-  override def children_=(c: List[IPackage]) ={
-    if(c!=null&&c.size==0){
-      println("A")
-    }
-    super.children_=(c);    
-  }
 }
 
 

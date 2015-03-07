@@ -42,9 +42,7 @@ trait IRuntimeProperty[D, R] {
   }
   def set(d: D, r1: R) {
     var r = r1;
-    if (r1.isInstanceOf[SourceUnit]){
-      println("A")
-    }
+    
     val interceptors = meta().about(classOf[ModifyInterceptor]);
     for (i <- interceptors) {
       r = i.beforeModify(this, d, r1).asInstanceOf[R];
@@ -202,8 +200,28 @@ case class ModelledRuntimeProperty[D, R >: Null](model: PropertyModel) extends I
 
   def meta(): PropertyModel = model;
 
-  def getter(): Function1[D, R] = actual.getter.asInstanceOf[Function1[D, R]];
-
+  def getter(): Function1[D, R] ={
+    val orginal=actual.getter;
+    val pr=model.range().fact(classOf[PretransformAssertion]);
+    if (pr==null){
+      return orginal;
+    }
+    val tp=pr.property;
+    val az=RuntimeImplicits.propToRuntime(tp).getter().asInstanceOf[Function[Any,R]];
+    return new Function1[D,R]{
+      
+      def apply(d:D):R={
+        val value=orginal(d);
+        if (value!=null){
+          val tt=az(value);
+          if (tt!=null){
+          return tt;
+          }
+        }
+        return value;
+      }
+    }
+  }
   def setter(): Function2[D, R, Unit] = actual.setter.asInstanceOf[Function2[D, R, Unit]];
 
   def range(): Class[R] = {

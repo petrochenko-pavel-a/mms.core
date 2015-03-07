@@ -20,11 +20,17 @@ import org.mms.core.codemodel.Package
 import org.mms.core.ParentChildAssertion
 import org.mms.core.codemodel.CodeModel
 import org.mms.core.codemodel.SourceUnit
+import org.mms.core.codemodel.Package
+import org.mms.core.codegen.SimpleJavaPOJOCodeGen
+import org.mms.core.codegen.FileSystemUnitWriter
+import java.io.File
+import org.mms.core.codemodel.ISourceType
 
 /**
  * code model related models
  */
-object ITypeModel extends AbstractType {}
+object ITypeModel extends AbstractType {
+}
 
 object CodeModelModel extends ModelType {
   val name = key(str);
@@ -58,6 +64,8 @@ object SourceUnitModel extends ModelType{
 object SourceMemberModel extends ModelType {
   val name = str;
   val elementsType = propOf(classOf[IType])
+  val isList = bool;
+  val isReq = bool;
 }
 
 /**
@@ -66,7 +74,7 @@ object SourceMemberModel extends ModelType {
 object TypeModel extends AbstractType {
   val typeNameProp = str withName ("typeName");
   val superTypeProp = propOf(TypeModel) withName ("superType")
-
+  val toModel=computed (propOf(SourceTypeModel)).withName("toModelIfPossible")
 }
 object ModelTypeModel extends ModelType(TypeModel) {
   val props = list(propOf(PropertyModelModel)).withName("declaredProperties");
@@ -81,6 +89,9 @@ object PropertyModelModel extends ModelType {
   val range = propOf(classOf[Type]);
 }
 
+object ListPropModel extends ModelType(PropertyModelModel);
+
+
 //this type is a member of both models
 object BuiltInTypeModel extends ModelType(null, withTrait(ITypeModel, TypeModel))
 
@@ -92,6 +103,7 @@ object Mappings extends AssertionContainer {
     SourceTypeModel <=> classOf[SourceType];
     PackageElementModel<=>classOf[Package];
     CodeModelModel<=>classOf[CodeModel];
+    ListPropModel<=>classOf[ListProp[_,_]];
     SourceMemberModel <=> classOf[SourceMember]; //We should be able to build transform proto without mapping
     SourceUnitModel<=>classOf[SourceUnit]
     TypeModel <=> classOf[Type]
@@ -103,18 +115,19 @@ object Mappings extends AssertionContainer {
 
   //first init mappings to classes;
   def definitions() = {
-    
     ModelTypeModel <=> SourceTypeModel;
     //type to source type conversion
     ModelTypeModel.props <=> SourceTypeModel.children;
+    ListPropModel <=>(SourceMemberModel.isList<=>true)
     TypeModel.typeNameProp <=> SourceTypeModel.name;
     TypeModel.superTypeProp <=> SourceTypeModel.superClass
+    TypeModel pretransform TypeModel.toModel;
     SourceTypeModel.parent.$.parent.$.name<=>ModelTypeModel.modelPackage;
-    SourceTypeModel.parent.$.name<=>ModelTypeModel.modelPackage;
+    SourceTypeModel.parent.$.name<=>TypeModel.typeNameProp;
     //Property to SourceMember conversion
     PropertyModelModel.name <=> SourceMemberModel.name;
     PropertyModelModel.range <=> SourceMemberModel.elementsType;
-    Universe.types<=>CodeModelModel.children.$.children;//mind crash!!!
+    Universe.types<=>CodeModelModel.children.$.children.$.children;//mind crash!!!
     
   }
 }
@@ -131,12 +144,15 @@ object TestApp extends App {
  val x=CodeModelModel.children.$.children;
   println(x);
   var v: IModelElement[_] = Transformers.transformer(classOf[ModelType[_]], classOf[SourceType])(SourceTypeModel);
+  println(System.identityHashCode(v.getAncestorOfKind(classOf[CodeModel])))
   println(v);
  
-  /*val u=new TypeUniverse();
+  val u=new TypeUniverse();
   u.add(SourceTypeModel);
   u.add(SourceMemberModel);
+  u.add(PropertyModelModel);
   
   val cm=Transformers.transform(u, classOf[CodeModel]);
-  println(cm);*/
+  println(cm);
+  new SimpleJavaPOJOCodeGen(new FileSystemUnitWriter(new File("/Users/kor/Documents/scala/demo/src"))).doGenerate(cm);
 }
