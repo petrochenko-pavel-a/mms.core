@@ -245,7 +245,7 @@ case class MapsTo(first: Type, another: Type) extends Entity[IsDescribedIn] with
 object RuntimeImplicits {
   implicit def propToRuntime(p: PropertyModel): IRuntimeProperty[_, _] = ModelledRuntimeProperty(p);
   implicit def typeToRuntime(p: Type): Class[_] = {
-    val set = Entity.about(p, classOf[OnRuntimeIs]);
+    val set = p.about(classOf[OnRuntimeIs]);
     if (set.size == 1) {
       return set.toSeq(0).clazz;
     }

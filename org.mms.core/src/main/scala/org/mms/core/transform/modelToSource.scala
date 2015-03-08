@@ -25,6 +25,7 @@ import org.mms.core.codegen.SimpleJavaPOJOCodeGen
 import org.mms.core.codegen.FileSystemUnitWriter
 import java.io.File
 import org.mms.core.codemodel.ISourceType
+import org.mms.core.ParentChildAssertion
 
 /**
  * code model related models
@@ -128,30 +129,14 @@ object Mappings extends AssertionContainer {
     PropertyModelModel.name <=> SourceMemberModel.name;
     PropertyModelModel.range <=> SourceMemberModel.elementsType;
     Universe.types<=>CodeModelModel.children.$.children.$.children;//mind crash!!!
-    
   }
 }
-object TargetTest1 extends App {
-  
-}
+import Entity._;
 
 object TestApp extends App {
   Mappings.learn();
-  
-  val p1=SourceTypeModel.parent.$.children;
-  val p2=SourceTypeModel.parent.$.children;
-  println(p1==p2)
- val x=CodeModelModel.children.$.children;
-  println(x);
-  var v: IModelElement[_] = Transformers.transformer(classOf[ModelType[_]], classOf[SourceType])(SourceTypeModel);
-  println(System.identityHashCode(v.getAncestorOfKind(classOf[CodeModel])))
-  println(v);
- 
   val u=new TypeUniverse();
   u.add(SourceTypeModel);
-  u.add(SourceMemberModel);
-  u.add(PropertyModelModel);
-  
   val cm=Transformers.transform(u, classOf[CodeModel]);
   println(cm);
   new SimpleJavaPOJOCodeGen(new FileSystemUnitWriter(new File("/Users/kor/Documents/scala/demo/src"))).doGenerate(cm);

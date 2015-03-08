@@ -115,9 +115,10 @@ trait AssertionContainer {
   def typeMappings(); Unit;
   def definitions(): Unit;
 
-  def learn() {
+  def learn(v:Any) {
     typeMappings();
     definitions();
+    
   };
 }
 trait Predicate {

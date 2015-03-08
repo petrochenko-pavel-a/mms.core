@@ -447,7 +447,7 @@ case class TransformBuilder(from: Type, to: Type) extends CanBuildTransform {
 
   def buildPerfectMapping(s: PropertyModel, target: Set[PropertyModel]): List[SomeTransform] = {
     var result = List[SomeTransform]();
-    val assertions = Entity.about(s, classOf[PropertyAssertion]);
+    val assertions = s.about(classOf[PropertyAssertion]);
     //here we may do a lot of smart things but for now we will be dumb, not transitivity, e.t.c at the moment
     for (x <- assertions) {
       x match {
